@@ -32,9 +32,22 @@ body,
   overflow-y: auto;
 }
 
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .sidebar h1 {
   font-size: 17px;
   margin: 0 0 4px;
+}
+
+.icon-button {
+  padding: 3px 8px;
+  font-size: 15px;
+  line-height: 1;
 }
 
 .sidebar h2 {
@@ -211,6 +224,59 @@ input[type='number'] {
   width: 38px;
   text-align: right;
   color: #e3e3e8;
+}
+
+/* --- settings modal --- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 320px;
+  padding: 16px;
+  background: #1d1d25;
+  border: 1px solid #3a3a48;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.modal-header button {
+  padding: 2px 8px;
+}
+
+.modal select {
+  font: inherit;
+  color: inherit;
+  background: #16161c;
+  border: 1px solid #3a3a48;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* --- route context menu --- */

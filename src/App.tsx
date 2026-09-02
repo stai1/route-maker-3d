@@ -4,6 +4,8 @@ import type { Feature, FeatureCollection } from 'geojson';
 import MapView from './map/MapView';
 import LayerMenu from './components/LayerMenu';
 import ProfilePanel from './components/ProfilePanel';
+import SettingsModal from './components/SettingsModal';
+import { formatDistance, loadSettings, saveSettings, type Settings } from './units';
 import { ElevationSource } from './elevation/ElevationSource';
 import { newRoute, type LonLat, type Route } from './model';
 import { densify, routeLength } from './geo';
@@ -47,6 +49,13 @@ export default function App() {
     x: number;
     y: number;
   } | null>(null);
+  const [settings, setSettings] = useState<Settings>(loadSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const updateSettings = (s: Settings) => {
+    setSettings(s);
+    saveSettings(s);
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const elevationSource = useMemo(() => new ElevationSource(), []);
 
@@ -248,7 +257,17 @@ export default function App() {
   return (
     <div id="app">
       <aside className="sidebar">
-        <h1>Route Maker 3D</h1>
+        <div className="sidebar-header">
+          <h1>Route Maker 3D</h1>
+          <button
+            className="icon-button"
+            title="Settings"
+            aria-label="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            ⚙
+          </button>
+        </div>
 
         <div className={`list-section${listDisabled ? ' disabled' : ''}`}>
           <div className="button-row">
@@ -307,8 +326,7 @@ export default function App() {
               Right-click to delete the active point.
             </p>
             <p className="distance">
-              {(routeLength(editing.draft.points) / 1000).toFixed(2)} km ·{' '}
-              {(routeLength(editing.draft.points) / 1609.344).toFixed(2)} mi
+              {formatDistance(routeLength(editing.draft.points), settings.unitSystem)}
             </p>
             <label>
               Name
@@ -412,10 +430,19 @@ export default function App() {
             route={selectedRoute}
             map={map}
             elevationSource={elevationSource}
+            unitSystem={settings.unitSystem}
             onClose={() => setProfileOpen(false)}
           />
         )}
       </div>
+
+      {settingsOpen && (
+        <SettingsModal
+          settings={settings}
+          onChange={updateSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       {contextMenu &&
         (() => {

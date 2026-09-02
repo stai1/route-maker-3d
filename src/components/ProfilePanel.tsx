@@ -4,11 +4,13 @@ import type { Route } from '../model';
 import { boundsOf } from '../geo';
 import { ElevationSource, MAX_ELEVATION_ZOOM } from '../elevation/ElevationSource';
 import { makeProfileSamples, type ProfileSample } from '../elevation/profile';
+import { formatAltitude, formatDistance, type UnitSystem } from '../units';
 
 interface Props {
   route: Route;
   map: MLMap;
   elevationSource: ElevationSource;
+  unitSystem: UnitSystem;
   onClose: () => void;
 }
 
@@ -20,7 +22,13 @@ interface Props {
  *   ever upgrade to higher-zoom reads; tiles backing current best samples
  *   are pinned in the ElevationSource until the panel closes.
  */
-export default function ProfilePanel({ route, map, elevationSource, onClose }: Props) {
+export default function ProfilePanel({
+  route,
+  map,
+  elevationSource,
+  unitSystem,
+  onClose,
+}: Props) {
   const [samples, setSamples] = useState<ProfileSample[]>([]);
 
   useEffect(() => {
@@ -92,8 +100,6 @@ export default function ProfilePanel({ route, map, elevationSource, onClose }: P
     return pts.join(' ');
   }, [samples, stats]);
 
-  const km = (m: number) => (m / 1000).toFixed(m >= 100000 ? 0 : 1);
-
   return (
     <div className="profile-panel">
       <div className="profile-header">
@@ -102,8 +108,9 @@ export default function ProfilePanel({ route, map, elevationSource, onClose }: P
           {stats && (
             <span className="profile-stats">
               {' '}
-              · {km(stats.total)} km · min {Math.round(stats.min)} m · max{' '}
-              {Math.round(stats.max)} m
+              · {formatDistance(stats.total, unitSystem)} · min{' '}
+              {formatAltitude(stats.min, unitSystem)} · max{' '}
+              {formatAltitude(stats.max, unitSystem)}
             </span>
           )}
         </span>

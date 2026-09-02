@@ -134,6 +134,10 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
 
 A **center-on-my-location button** (MapLibre's standard `GeolocateControl`) recenters the camera on the user's position (zoom ≈ 16, matching the 2D route maker's ⦿ control) and shows a location dot with an accuracy circle, tracking the position while active. Requires a secure context (localhost / HTTPS) and the user granting the browser's geolocation permission.
 
+### Settings
+
+A **settings button** (gear icon) sits at the top right of the left panel, on the same line as the app title. It opens a **modal dialog** with a single setting: the **unit system**, using the same systems as `../activity-slicer` — `km/meters` (default), `miles/feet`, `meters/meters` (distance unit / elevation unit). The setting applies to the route-editing distance readout and the elevation-profile stats, and persists in `localStorage`. Internal values remain meters throughout; units are a display concern only.
+
 ### Base map layer control
 
 Map controls are arranged as a **single column at the top right** (layers control, then geolocate), keeping the bottom of the map clear for the elevation-profile panel.
