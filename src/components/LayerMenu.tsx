@@ -19,6 +19,7 @@ const BASEMAPS: Array<{ kind: BasemapKind; label: string }> = [
   { kind: 'light', label: 'Light' },
   { kind: 'standard', label: 'Standard' }, // OSM Bright
   { kind: 'satellite', label: 'Satellite' },
+  { kind: 'hybrid', label: 'Hybrid' }, // satellite + roads and all labels
 ];
 
 /**
