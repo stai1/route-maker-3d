@@ -1,10 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { Route } from '../model';
 import { boundsOf } from '../geo';
 import { ElevationSource, MAX_ELEVATION_ZOOM } from '../elevation/ElevationSource';
 import { makeProfileSamples, type ProfileSample } from '../elevation/profile';
-import { formatAltitude, formatDistance, type UnitSystem } from '../units';
+import { MILE_METERS, formatAltitude, formatDistance, type UnitSystem } from '../units';
+
+/** "Nice" tick values (1/2/5 × 10^n steps) covering [min, max]. */
+function niceTicks(min: number, max: number, targetCount: number): number[] {
+  const span = max - min;
+  if (span <= 0) return [min];
+  const step0 = span / targetCount;
+  const mag = 10 ** Math.floor(Math.log10(step0));
+  const step =
+    [1, 2, 5, 10].map((m) => m * mag).find((s) => span / s <= targetCount + 1) ??
+    10 * mag;
+  const out: number[] = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + step / 1e6; v += step) {
+    out.push(v);
+  }
+  return out;
+}
+
+const tickNumber = (v: number) =>
+  Math.abs(v % 1) < 1e-9 ? v.toFixed(0) : v.toFixed(1);
 
 interface Props {
   route: Route;
@@ -30,6 +49,19 @@ export default function ProfilePanel({
   onClose,
 }: Props) {
   const [samples, setSamples] = useState<ProfileSample[]>([]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [plotWidth, setPlotWidth] = useState(800);
+
+  // track the panel's width so x-tick density adapts to available space
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const measure = () => setPlotWidth(Math.max(100, el.clientWidth - 24));
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (route.points.length < 2) return;
@@ -100,8 +132,38 @@ export default function ProfilePanel({
     return pts.join(' ');
   }, [samples, stats]);
 
+  // axis ticks, computed as "nice" values in the display units; y positions use
+  // the same meters→pixel mapping as the drawn line so gridlines align with it
+  const axes = useMemo(() => {
+    if (!stats) return null;
+    const spanM = Math.max(stats.max - stats.min, 10);
+    const distScale =
+      unitSystem === 'miles/feet' ? 1 / MILE_METERS : unitSystem === 'meters/meters' ? 1 : 1 / 1000;
+    const distUnit =
+      unitSystem === 'miles/feet' ? 'mi' : unitSystem === 'meters/meters' ? 'm' : 'km';
+    const eleScale = unitSystem === 'miles/feet' ? 1 / 0.3048 : 1;
+    const eleUnit = unitSystem === 'miles/feet' ? 'ft' : 'm';
+
+    // one x tick per ~50px of plot width
+    const xTickCount = Math.max(2, Math.floor(plotWidth / 50));
+    const xTicks = niceTicks(0, stats.total * distScale, xTickCount)
+      .map((v) => ({
+        frac: v / distScale / Math.max(stats.total, 1),
+        label: `${tickNumber(v)} ${distUnit}`,
+      }))
+      .filter((t) => t.frac <= 0.97);
+    const yTicks = niceTicks(stats.min * eleScale, stats.max * eleScale, 4)
+      .map((v) => {
+        const meters = v / eleScale;
+        const y = H - ((meters - stats.min) / spanM) * (H - 20) - 10;
+        return { frac: y / H, label: `${tickNumber(v)} ${eleUnit}` };
+      })
+      .filter((t) => t.frac >= 0.06 && t.frac <= 0.98);
+    return { xTicks, yTicks };
+  }, [stats, unitSystem, plotWidth]);
+
   return (
-    <div className="profile-panel">
+    <div className="profile-panel" ref={panelRef}>
       <div className="profile-header">
         <span className="profile-title">
           Elevation profile — {route.name}
@@ -121,19 +183,71 @@ export default function ProfilePanel({
       ) : !stats ? (
         <div className="profile-empty">Loading elevation…</div>
       ) : (
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          className="profile-svg"
-        >
-          <polyline points={path} fill="none" stroke="#6cf" strokeWidth="1.5" />
-          <polygon
-            points={`0,${H} ${path} ${W},${H}`}
-            fill="#6cf"
-            opacity="0.15"
-            stroke="none"
-          />
-        </svg>
+        <>
+          <div className="profile-plot">
+            <svg
+              viewBox={`0 0 ${W} ${H}`}
+              preserveAspectRatio="none"
+              className="profile-svg"
+            >
+              <polyline points={path} fill="none" stroke="#6cf" strokeWidth="1.5" />
+              <polygon
+                points={`0,${H} ${path} ${W},${H}`}
+                fill="#6cf"
+                opacity="0.15"
+                stroke="none"
+              />
+              {axes?.yTicks.map((t) => (
+                <line
+                  key={`y${t.frac}`}
+                  x1={0}
+                  x2={W}
+                  y1={t.frac * H}
+                  y2={t.frac * H}
+                  stroke="#ffffff"
+                  strokeOpacity="0.12"
+                  strokeWidth="0.5"
+                />
+              ))}
+              {axes?.xTicks.map((t) => (
+                <line
+                  key={`x${t.frac}`}
+                  x1={t.frac * W}
+                  x2={t.frac * W}
+                  y1={0}
+                  y2={H}
+                  stroke="#ffffff"
+                  strokeOpacity="0.12"
+                  strokeWidth="0.5"
+                />
+              ))}
+            </svg>
+            {/* labels live in HTML — text inside the stretched SVG would distort */}
+            {axes?.yTicks.map((t) => (
+              <span
+                key={`yl${t.frac}`}
+                className="profile-tick-y"
+                style={{ top: `${t.frac * 100}%` }}
+              >
+                {t.label}
+              </span>
+            ))}
+          </div>
+          <div className="profile-xaxis">
+            {axes?.xTicks.map((t) => (
+              <span
+                key={`xl${t.frac}`}
+                className="profile-tick-x"
+                style={{
+                  left: `${t.frac * 100}%`,
+                  transform: t.frac < 0.03 ? 'none' : 'translateX(-50%)',
+                }}
+              >
+                {t.label}
+              </span>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

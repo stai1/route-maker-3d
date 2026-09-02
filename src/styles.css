@@ -435,10 +435,37 @@ input[type='number'] {
   padding: 2px 8px;
 }
 
+.profile-plot {
+  position: relative;
+}
+
 .profile-svg {
   width: 100%;
   height: 150px;
   display: block;
+}
+
+.profile-tick-y {
+  position: absolute;
+  left: 4px;
+  transform: translateY(-100%);
+  font-size: 10px;
+  color: #9a9aa8;
+  pointer-events: none;
+}
+
+.profile-xaxis {
+  position: relative;
+  height: 14px;
+}
+
+.profile-tick-x {
+  position: absolute;
+  top: 0;
+  font-size: 10px;
+  color: #9a9aa8;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .profile-empty {
