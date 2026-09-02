@@ -426,9 +426,50 @@ input[type='number'] {
   font-weight: 600;
 }
 
+/* stats as bordered cells with collapsed borders; border color signals
+   whether the values describe the selection (graph color) or the whole route */
 .profile-stats {
+  display: inline-flex;
+  margin-left: 8px;
+  vertical-align: middle;
   font-weight: 400;
   color: #9a9aa8;
+}
+
+.profile-stats .stat-cell {
+  border: 1px solid #3a3a48;
+  padding: 1px 8px;
+}
+
+.profile-stats .stat-cell + .stat-cell {
+  border-left: none; /* collapse shared borders */
+}
+
+.profile-stats .stat-cell:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.profile-stats .stat-cell:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+.profile-stats.selection-active .stat-cell {
+  border-color: #6cf;
+}
+
+/* fixed-width stat values so positions don't shift as digits come and go */
+.profile-stats .stat {
+  display: inline-block;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-stats .stat-dist {
+  min-width: 10ch;
+}
+
+.profile-stats .stat-ele {
+  min-width: 8ch;
 }
 
 .profile-header button {
@@ -437,6 +478,12 @@ input[type='number'] {
 
 .profile-plot {
   position: relative;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.profile-sel-rect {
+  mix-blend-mode: screen;
 }
 
 .profile-svg {

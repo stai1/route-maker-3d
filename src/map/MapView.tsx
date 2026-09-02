@@ -19,6 +19,8 @@ export interface MapViewProps {
   exaggeration: number;
   routesFC: FeatureCollection;
   handlesFC: FeatureCollection;
+  /** Bolded sub-route for the elevation profile's range selection. */
+  selectionFC: FeatureCollection;
   selectedId: string | null;
   editing: boolean;
   onReady: (map: MLMap) => void;
@@ -276,6 +278,9 @@ export default function MapView(props: MapViewProps) {
       if (!map.getSource('handles')) {
         map.addSource('handles', { type: 'geojson', data: p.handlesFC as any });
       }
+      if (!map.getSource('selection')) {
+        map.addSource('selection', { type: 'geojson', data: p.selectionFC as any });
+      }
       if (!map.getLayer('route-selected-casing')) {
         map.addLayer({
           id: 'route-selected-casing',
@@ -302,6 +307,20 @@ export default function MapView(props: MapViewProps) {
             'line-color': ['get', 'color'],
             'line-opacity': ['to-number', ['get', 'opacity']],
             'line-width': ['to-number', ['get', 'width']],
+          },
+        } as any);
+      }
+      if (!map.getLayer('route-selection-segment')) {
+        // bold overlay of the profile-selected span, above the route line
+        map.addLayer({
+          id: 'route-selection-segment',
+          type: 'line',
+          source: 'selection',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-opacity': ['to-number', ['get', 'opacity']],
+            'line-width': ['+', ['to-number', ['get', 'width']], 3],
           },
         } as any);
       }
@@ -512,7 +531,13 @@ export default function MapView(props: MapViewProps) {
           transformStyle: (previous, next) => {
             if (!previous) return next;
             const keepSources: Record<string, any> = {};
-            for (const id of ['terrain-dem', 'hillshade-dem', 'routes', 'handles']) {
+            for (const id of [
+              'terrain-dem',
+              'hillshade-dem',
+              'routes',
+              'handles',
+              'selection',
+            ]) {
               if (previous.sources?.[id]) keepSources[id] = previous.sources[id];
             }
             const keepIds = [
@@ -520,6 +545,7 @@ export default function MapView(props: MapViewProps) {
               'buildings-3d',
               'route-selected-casing',
               'routes-line',
+              'route-selection-segment',
               'route-handles',
             ];
             const keepLayers = (previous.layers ?? []).filter((l) =>
@@ -565,6 +591,10 @@ export default function MapView(props: MapViewProps) {
     if (routesSrc) routesSrc.setData(props.routesFC as any);
     const handlesSrc = map.getSource('handles') as maplibregl.GeoJSONSource | undefined;
     if (handlesSrc) handlesSrc.setData(props.handlesFC as any);
+    const selectionSrc = map.getSource('selection') as
+      | maplibregl.GeoJSONSource
+      | undefined;
+    if (selectionSrc) selectionSrc.setData(props.selectionFC as any);
     if (map.getLayer('route-selected-casing')) {
       map.setFilter('route-selected-casing', [
         '==',
@@ -572,7 +602,7 @@ export default function MapView(props: MapViewProps) {
         !props.editing && props.selectedId ? props.selectedId : '',
       ] as any);
     }
-  }, [props.routesFC, props.handlesFC, props.selectedId, props.editing]);
+  }, [props.routesFC, props.handlesFC, props.selectionFC, props.selectedId, props.editing]);
 
   return <div ref={containerRef} className="map-container" />;
 }

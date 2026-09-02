@@ -25,11 +25,19 @@ function niceTicks(min: number, max: number, targetCount: number): number[] {
 const tickNumber = (v: number) =>
   Math.abs(v % 1) < 1e-9 ? v.toFixed(0) : v.toFixed(1);
 
+export interface ProfileSelection {
+  /** meters along the route */
+  start: number;
+  end: number;
+}
+
 interface Props {
   route: Route;
   map: MLMap;
   elevationSource: ElevationSource;
   unitSystem: UnitSystem;
+  selection: ProfileSelection | null;
+  onSelectionChange: (sel: ProfileSelection | null) => void;
   onClose: () => void;
 }
 
@@ -46,6 +54,8 @@ export default function ProfilePanel({
   map,
   elevationSource,
   unitSystem,
+  selection,
+  onSelectionChange,
   onClose,
 }: Props) {
   const [samples, setSamples] = useState<ProfileSample[]>([]);
@@ -110,12 +120,59 @@ export default function ProfilePanel({
     };
   }, [route.id]);
 
+  // full-route stats drive the graph's y-scaling (selection must not rescale it)
   const stats = useMemo(() => {
     const eles = samples.filter((s) => s.ele !== null).map((s) => s.ele!);
     if (!eles.length) return null;
     const total = samples[samples.length - 1]?.d ?? 0;
     return { min: Math.min(...eles), max: Math.max(...eles), total };
   }, [samples]);
+
+  // header stats reflect the selection when one is active
+  const headerStats = useMemo(() => {
+    if (!selection || !stats) return stats;
+    const eles = samples
+      .filter((s) => s.ele !== null && s.d >= selection.start && s.d <= selection.end)
+      .map((s) => s.ele!);
+    if (!eles.length) return stats;
+    return {
+      min: Math.min(...eles),
+      max: Math.max(...eles),
+      total: selection.end - selection.start,
+    };
+  }, [samples, selection, stats]);
+
+  // --- shift+drag range selection ---
+  const dragRef = useRef<{ startFrac: number; moved: boolean } | null>(null);
+
+  const fracFromEvent = (e: React.PointerEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  };
+
+  const onPlotPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // shift+drag or right-drag selects; the same click without a drag clears
+    if (!(e.shiftKey || e.button === 2) || !stats) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { startFrac: fracFromEvent(e), moved: false };
+    onSelectionChange(null); // starting anew clears the old
+  };
+
+  const onPlotPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || !stats) return;
+    const frac = fracFromEvent(e);
+    if (!drag.moved && Math.abs(frac - drag.startFrac) * plotWidth < 3) return;
+    drag.moved = true;
+    onSelectionChange({
+      start: Math.min(drag.startFrac, frac) * stats.total,
+      end: Math.max(drag.startFrac, frac) * stats.total,
+    });
+  };
+
+  const onPlotPointerUp = () => {
+    dragRef.current = null;
+  };
 
   const W = 800;
   const H = 150;
@@ -167,12 +224,25 @@ export default function ProfilePanel({
       <div className="profile-header">
         <span className="profile-title">
           Elevation profile — {route.name}
-          {stats && (
-            <span className="profile-stats">
-              {' '}
-              · {formatDistance(stats.total, unitSystem)} · min{' '}
-              {formatAltitude(stats.min, unitSystem)} · max{' '}
-              {formatAltitude(stats.max, unitSystem)}
+          {headerStats && (
+            <span className={`profile-stats${selection ? ' selection-active' : ''}`}>
+              <span className="stat-cell">
+                <span className="stat stat-dist">
+                  {formatDistance(headerStats.total, unitSystem)}
+                </span>
+              </span>
+              <span className="stat-cell">
+                min{' '}
+                <span className="stat stat-ele">
+                  {formatAltitude(headerStats.min, unitSystem)}
+                </span>
+              </span>
+              <span className="stat-cell">
+                max{' '}
+                <span className="stat stat-ele">
+                  {formatAltitude(headerStats.max, unitSystem)}
+                </span>
+              </span>
             </span>
           )}
         </span>
@@ -184,7 +254,13 @@ export default function ProfilePanel({
         <div className="profile-empty">Loading elevation…</div>
       ) : (
         <>
-          <div className="profile-plot">
+          <div
+            className="profile-plot"
+            onPointerDown={onPlotPointerDown}
+            onPointerMove={onPlotPointerMove}
+            onPointerUp={onPlotPointerUp}
+            onContextMenu={(e) => e.preventDefault()}
+          >
             <svg
               viewBox={`0 0 ${W} ${H}`}
               preserveAspectRatio="none"
@@ -197,6 +273,39 @@ export default function ProfilePanel({
                 opacity="0.15"
                 stroke="none"
               />
+              {selection && stats && (() => {
+                const f0 = (selection.start / Math.max(stats.total, 1)) * W;
+                const f1 = (selection.end / Math.max(stats.total, 1)) * W;
+                return (
+                  <>
+                    <defs>
+                      <clipPath id="profile-sel-clip">
+                        <rect x={f0} y={0} width={Math.max(f1 - f0, 0)} height={H} />
+                      </clipPath>
+                    </defs>
+                    {/* mild highlight, screen-blended so it brightens what's beneath */}
+                    <rect
+                      className="profile-sel-rect"
+                      x={f0}
+                      y={0}
+                      width={Math.max(f1 - f0, 0)}
+                      height={H}
+                      fill="#6cf"
+                      fillOpacity="0.18"
+                    />
+                    {/* bold the graph inside the selection */}
+                    <polyline
+                      points={path}
+                      fill="none"
+                      stroke="#6cf"
+                      strokeWidth="3"
+                      clipPath="url(#profile-sel-clip)"
+                    />
+                    <line x1={f0} x2={f0} y1={0} y2={H} stroke="#9fd4ff" strokeWidth="1" />
+                    <line x1={f1} x2={f1} y1={0} y2={H} stroke="#9fd4ff" strokeWidth="1" />
+                  </>
+                );
+              })()}
               {axes?.yTicks.map((t) => (
                 <line
                   key={`y${t.frac}`}

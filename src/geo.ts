@@ -40,6 +40,24 @@ export function pointAlong(points: LonLat[], cum: number[], d: number): LonLat {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 }
 
+/** Sub-polyline between distances d0..d1 (meters) along the line. */
+export function slicePolyline(
+  points: LonLat[],
+  cum: number[],
+  d0: number,
+  d1: number,
+): LonLat[] {
+  const total = cum[cum.length - 1] ?? 0;
+  const a = Math.max(0, Math.min(d0, total));
+  const b = Math.max(a, Math.min(d1, total));
+  const out: LonLat[] = [pointAlong(points, cum, a)];
+  for (let i = 0; i < points.length; i++) {
+    if (cum[i] > a && cum[i] < b) out.push(points[i]);
+  }
+  out.push(pointAlong(points, cum, b));
+  return out;
+}
+
 /** [[west, south], [east, north]] */
 export function boundsOf(points: LonLat[]): [[number, number], [number, number]] {
   let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;

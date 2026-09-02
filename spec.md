@@ -113,6 +113,7 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
 * **Right-clicking a route in the list** selects it and opens a **context menu** of per-route actions:
   * **Edit** — enters **create/edit mode** on that route.
   * **Show Elevation Profile** — opens a **panel showing the route's elevation-profile graph**, with distance and elevation axes (gridlines + "nice" tick values, rendered in the selected unit system) (see *Tech stack → Elevation data*; opening the panel is what fits the camera to the route bounds and begins profile computation).
+    * **Range selection:** **shift+drag or right-drag** on the graph selects a distance range. The range is denoted by vertical boundary lines with a mild highlight between them (blended with `mix-blend-mode: screen`, so it brightens the graph beneath). The graph line is bolded inside the selection, and the **corresponding section of the route is bolded on the map**. Starting a new selection clears the old one, so a shift/right *click* (no drag) clears the selection. The panel's stats (distance, min/max elevation) are shown as **bordered cells with collapsed borders** (one cell per stat); the border is muted gray when the stats describe the whole route and switches to the graph color when they describe an active selection; the graph's y-scaling always stays fit to the whole route.
   * **Export KML** — exports that route as a KML file.
   * **Export GPX** — exports that route as GPX (geometry only).
   * **Delete** — removes the route, after a confirmation prompt.

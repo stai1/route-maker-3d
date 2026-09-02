@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { Feature, FeatureCollection } from 'geojson';
 import MapView from './map/MapView';
@@ -8,7 +8,7 @@ import SettingsModal from './components/SettingsModal';
 import { formatDistance, loadSettings, saveSettings, type Settings } from './units';
 import { ElevationSource } from './elevation/ElevationSource';
 import { newRoute, type LonLat, type Route } from './model';
-import { densify, routeLength } from './geo';
+import { cumulativeDistances, densify, routeLength, slicePolyline } from './geo';
 import { kmlToRoutes, kmzToRoutes, routesToKml } from './io/kml';
 import { gpxToRoutes, routeToGpx } from './io/gpx';
 import type { BasemapKind } from './map/basemaps';
@@ -51,6 +51,16 @@ export default function App() {
   } | null>(null);
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** Profile range selection, meters along the selected route. */
+  const [profileSelection, setProfileSelection] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+
+  // selection is scoped to the open profile of the selected route
+  useEffect(() => {
+    setProfileSelection(null);
+  }, [selectedId, profileOpen]);
 
   const updateSettings = (s: Settings) => {
     setSettings(s);
@@ -91,6 +101,34 @@ export default function App() {
     }),
     [displayRoutes],
   );
+
+  // bolded sub-route on the map for the profile's range selection
+  const selectionFC = useMemo<FeatureCollection>(() => {
+    if (!profileSelection || !selectedRoute || selectedRoute.points.length < 2) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+    const cum = cumulativeDistances(selectedRoute.points);
+    const seg = slicePolyline(
+      selectedRoute.points,
+      cum,
+      profileSelection.start,
+      profileSelection.end,
+    );
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {
+            color: selectedRoute.color,
+            opacity: selectedRoute.opacity,
+            width: selectedRoute.width,
+          },
+          geometry: { type: 'LineString', coordinates: densify(seg) },
+        },
+      ],
+    };
+  }, [profileSelection, selectedRoute]);
 
   const handlesFC = useMemo<FeatureCollection>(
     () => ({
@@ -401,6 +439,7 @@ export default function App() {
           exaggeration={exaggeration}
           routesFC={routesFC}
           handlesFC={handlesFC}
+          selectionFC={selectionFC}
           selectedId={selectedId}
           editing={editing !== null}
           onReady={setMap}
@@ -431,6 +470,8 @@ export default function App() {
             map={map}
             elevationSource={elevationSource}
             unitSystem={settings.unitSystem}
+            selection={profileSelection}
+            onSelectionChange={setProfileSelection}
             onClose={() => setProfileOpen(false)}
           />
         )}
