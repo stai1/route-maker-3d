@@ -32,6 +32,53 @@ export interface MapViewProps {
 
 const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] };
 
+/** Daytime sky: deep azure zenith fading to pale haze at the horizon. */
+const SKY_DAY = {
+  'sky-color': '#2e6bb3',
+  'horizon-color': '#cfe4f7',
+  'fog-color': '#cfe4f7',
+  'sky-horizon-blend': 0.7,
+  'horizon-fog-blend': 0.8,
+  'fog-ground-blend': 0.85,
+};
+
+/** Dusk sky for the dark basemap: indigo zenith with a muted amber horizon glow. */
+const SKY_DUSK = {
+  'sky-color': '#0e1a38',
+  'horizon-color': '#5c412f',
+  'fog-color': '#352e37',
+  'sky-horizon-blend': 0.5,
+  'horizon-fog-blend': 0.8,
+  'fog-ground-blend': 0.85,
+};
+
+/**
+ * Apply the sky palette with a pitch-aware atmosphere halo.
+ *
+ * atmosphere-blend expressions only understand zoom, not pitch — but at a
+ * shallow (high-pitch) camera angle the halo covers most of the screen and
+ * obscures the globe. So we scale the halo's strength down as pitch rises
+ * (full below 20°, fading to 0.2 by 60°) and re-apply on pitch changes.
+ */
+function applySky(map: MLMap, basemap: BasemapKind): void {
+  const pitch = map.getPitch();
+  const pitchFactor = 1 - Math.min(Math.max((pitch - 10) / 50, 0), 1) * 0.8;
+  (map as any).setSky?.({
+    ...(basemap === 'dark' ? SKY_DUSK : SKY_DAY),
+    'atmosphere-blend': [
+      'interpolate',
+      ['linear'],
+      ['zoom'],
+      0,
+      pitchFactor,
+      10,
+      pitchFactor,
+      12,
+      0,
+    ],
+  });
+}
+
 /** Labels are the basemap's symbol layers; toggling them shows/hides all text. */
 function applyLabelVisibility(map: MLMap, show: boolean): void {
   try {
@@ -114,6 +161,11 @@ export default function MapView(props: MapViewProps) {
     map.on('rotateend', writeCameraToUrl);
     map.on('pitchend', writeCameraToUrl);
 
+    // keep the atmosphere halo scaled to the camera angle (see applySky)
+    map.on('pitch', () => {
+      if (map.getStyle()) applySky(map, propsRef.current.basemap);
+    });
+
     const applyContent = () => {
       const p = propsRef.current;
       // terrain (see spec: Elevation data > Terrain mesh)
@@ -130,6 +182,9 @@ export default function MapView(props: MapViewProps) {
       map.setTerrain({ source: 'terrain-dem', exaggeration: p.exaggeration });
       // globe projection (MapLibre v5)
       (map as any).setProjection?.({ type: 'globe' });
+
+      // realistic sky, matched to the basemap: dusk over dark, daytime otherwise
+      applySky(map, p.basemap);
 
       // hillshade: relief shading from the same DEM tiles (separate source, per
       // the MapLibre terrain example), inserted below labels so text stays clean
@@ -404,6 +459,7 @@ export default function MapView(props: MapViewProps) {
               layers: [...next.layers, ...keepLayers],
               terrain: previous.terrain,
               projection: previous.projection ?? (next as any).projection,
+              sky: (previous as any).sky ?? (next as any).sky,
             };
           },
         });

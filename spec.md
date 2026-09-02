@@ -61,6 +61,8 @@ Because labels come from the vector style itself, there is no separate label sou
 
 A **hillshade overlay** (MapLibre's `hillshade` layer type, computed on the GPU from the same Terrarium DEM tiles as the terrain — token-free, no extra tile source) adds relief shading so mountain shapes read clearly where the basemap has no texture (undeveloped areas). It sits below the label layers and works over all three basemaps.
 
+The **sky** uses MapLibre's `sky` style property with a realistic gradient matched to the basemap: a **daytime** palette over Light and Satellite (deep azure zenith blending to pale haze at the horizon) and a **dusk** palette over Dark (indigo zenith with a muted amber horizon glow). Both blend fog into the ground and show the atmosphere halo when zoomed out to the globe (faded out at close zooms, and scaled down as camera pitch rises — at shallow angles the halo would otherwise cover most of the screen and obscure the globe).
+
 ### Route rendering (mapping requirements to MapLibre)
 
 * **Line follows the Earth contour + constant on-screen width.** Each route is a GeoJSON `LineString` in a `line` layer. With terrain enabled, MapLibre auto-drapes lines onto the terrain so they follow the contour, and `line-width` is specified in screen pixels — giving constant on-screen width regardless of tilt or zoom. Long straight segments should be densified (interpolated vertices) so a segment between far-apart points doesn't cut through hills; watch for z-fighting flicker of co-planar draped lines at high exaggeration.
