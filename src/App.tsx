@@ -434,8 +434,9 @@ export default function App() {
         )}
       </aside>
 
-      <div className="map-wrap">
-        <MapView
+      <div className="main-column">
+        <div className="map-wrap">
+          <MapView
           basemap={basemap}
           showLabels={showLabels}
           hillshade={hillshade}
@@ -455,18 +456,19 @@ export default function App() {
           onDeleteActive={deleteActive}
         />
 
-        <LayerMenu
-          basemap={basemap}
-          onBasemap={setBasemap}
-          showLabels={showLabels}
-          onShowLabels={setShowLabels}
-          hillshade={hillshade}
-          onHillshade={setHillshade}
-          buildings={buildings}
-          onBuildings={setBuildings}
-          exaggeration={exaggeration}
-          onExaggeration={setExaggeration}
-        />
+          <LayerMenu
+            basemap={basemap}
+            onBasemap={setBasemap}
+            showLabels={showLabels}
+            onShowLabels={setShowLabels}
+            hillshade={hillshade}
+            onHillshade={setHillshade}
+            buildings={buildings}
+            onBuildings={setBuildings}
+            exaggeration={exaggeration}
+            onExaggeration={setExaggeration}
+          />
+        </div>
 
         {profileOpen && selectedRoute && !editing && map && (
           <ProfilePanel

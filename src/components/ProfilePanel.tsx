@@ -126,7 +126,10 @@ export default function ProfilePanel({
       }
     };
 
-    // fit to route bounds so the whole route is covered (see spec)
+    // fit to route bounds so the whole route is covered (see spec).
+    // resize first: the panel docks below the map, shrinking its container,
+    // and the fit must be computed against the new size
+    map.resize();
     map.fitBounds(boundsOf(route.points), { padding: 80, duration: 600 });
     map.once('idle', () => {
       if (alive) void refine(currentZoom(), false);
