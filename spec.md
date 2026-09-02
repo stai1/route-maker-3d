@@ -97,7 +97,7 @@ We use **MapLibre's built-in camera handlers**, which are Google-Earth-like by d
 * **Scroll / pinch** — zoom.
 * **Right drag / Ctrl+left drag / two-finger drag** — rotate (bearing) and pitch.
 
-`maxPitch` is set to **90°** so the camera can tilt all the way up to horizontal, but not above it (pitch is measured from straight-down = 0° to the horizon = 90°). Keyboard camera panning is out of scope (MapLibre's keyboard handler can be disabled).
+`maxPitch` is set to **85°** — close to but just shy of horizontal (pitch is measured from straight-down = 0° to the horizon = 90°). Keyboard camera panning is out of scope (MapLibre's keyboard handler can be disabled).
 
 ## Reference project
 

@@ -145,7 +145,7 @@ export default function MapView(props: MapViewProps) {
       zoom: initialCam?.zoom ?? 1.6,
       bearing: initialCam?.bearing ?? 0,
       pitch: initialCam?.pitch ?? 0,
-      maxPitch: 90, // allow tilting all the way up to horizontal (see spec: Camera controls)
+      maxPitch: 85, // just shy of horizontal (see spec: Camera controls)
       attributionControl: { compact: true },
     });
     mapRef.current = map;
