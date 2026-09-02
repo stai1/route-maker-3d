@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { LonLat, Route } from '../model';
-import { boundsOf, cumulativeDistances, pointAlong } from '../geo';
+import { boundsOf, cumulativeDistances, pointAlong, routeLength } from '../geo';
 import { ElevationSource, MAX_ELEVATION_ZOOM } from '../elevation/ElevationSource';
 import { makeProfileSamples, type ProfileSample } from '../elevation/profile';
 import { MILE_METERS, formatAltitude, formatDistance, type UnitSystem } from '../units';
@@ -37,6 +37,27 @@ const clamp = (v: number, min: number, max: number) =>
  */
 const MIN_ZOOM_WINDOW_METERS = 100;
 
+/**
+ * Seed elevations for freshly positioned samples by interpolating the previous
+ * samples at the same absolute distance. Keeps the graph and stats live during
+ * rapid edits; z stays -1 so the debounced refinement re-reads real values.
+ */
+function seedElevations(next: ProfileSample[], prev: ProfileSample[]): void {
+  if (prev.length < 2) return;
+  let j = 1;
+  for (const s of next) {
+    while (j < prev.length - 1 && prev[j].d < s.d) j++;
+    const a = prev[j - 1];
+    const b = prev[j];
+    if (a.ele !== null && b.ele !== null && b.d > a.d) {
+      const t = clamp((s.d - a.d) / (b.d - a.d), 0, 1);
+      s.ele = a.ele + (b.ele - a.ele) * t;
+    } else if (a.ele !== null) {
+      s.ele = a.ele;
+    }
+  }
+}
+
 export interface ProfileSelection {
   /** meters along the route */
   start: number;
@@ -52,6 +73,10 @@ interface Props {
   onSelectionChange: (sel: ProfileSelection | null) => void;
   /** Route position under the graph cursor, for the map marker. */
   onHover: (p: LonLat | null) => void;
+  /** Fit the camera to the route on open (disabled during live editing). */
+  fitOnOpen: boolean;
+  /** Bumped when the route is reversed, so the zoom window mirrors. */
+  reverseNonce: number;
   onClose: () => void;
 }
 
@@ -71,6 +96,8 @@ export default function ProfilePanel({
   selection,
   onSelectionChange,
   onHover,
+  fitOnOpen,
+  reverseNonce,
   onClose,
 }: Props) {
   const [samples, setSamples] = useState<ProfileSample[]>([]);
@@ -83,6 +110,38 @@ export default function ProfilePanel({
   /** Normalize the y-axis to the visible portion (default: whole route). */
   const [fitY, setFitY] = useState(false);
 
+  // --- zoom-window preservation across live route edits ---
+  // 100% stays 100%. Otherwise keep the same absolute distances; if the route
+  // shrinks past the window's right edge, push the window left; if pushing
+  // would hit the left edge too (window ≥ route), cancel back to 100%.
+  const totalNow = useMemo(() => routeLength(route.points), [route.points]);
+  const prevTotalRef = useRef(totalNow);
+  useEffect(() => {
+    const before = prevTotalRef.current;
+    const after = totalNow;
+    prevTotalRef.current = after;
+    if (before === after || before <= 0 || after <= 0) return;
+    setView((v) => {
+      if (v.start <= 0 && v.end >= 1) return v; // full view stays full
+      const d0 = v.start * before;
+      const d1 = v.end * before;
+      if (d1 <= after) return { start: d0 / after, end: d1 / after };
+      const w = d1 - d0;
+      if (w >= after) return { start: 0, end: 1 }; // pushed into the left edge
+      return { start: (after - w) / after, end: 1 }; // pushed against the right edge
+    });
+  }, [totalNow]);
+
+  // reversing the route mirrors the zoom window (same length, opposite end)
+  const prevReverseRef = useRef(reverseNonce);
+  useEffect(() => {
+    if (reverseNonce === prevReverseRef.current) return;
+    prevReverseRef.current = reverseNonce;
+    setView((v) =>
+      v.start <= 0 && v.end >= 1 ? v : { start: 1 - v.end, end: 1 - v.start },
+    );
+  }, [reverseNonce]);
+
   // track the panel's width so x-tick density adapts to available space
   useEffect(() => {
     const el = panelRef.current;
@@ -94,12 +153,20 @@ export default function ProfilePanel({
     return () => ro.disconnect();
   }, []);
 
+  // whether this mount has already done its fit-to-bounds camera move
+  const fittedRef = useRef(false);
+  // latest samples, for seeding elevations across live geometry edits
+  const samplesRef = useRef<ProfileSample[]>([]);
+
   useEffect(() => {
-    if (route.points.length < 2) return;
+    if (route.points.length < 2) {
+      samplesRef.current = [];
+      setSamples([]);
+      return;
+    }
     let alive = true;
     const arr = makeProfileSamples(route.points);
     const sampleTiles = new Map<number, string[]>();
-    setSamples([...arr]);
 
     const currentZoom = () =>
       Math.max(0, Math.min(MAX_ELEVATION_ZOOM, Math.ceil(map.getZoom()) + 1));
@@ -121,28 +188,46 @@ export default function ProfilePanel({
         }
       }
       if (changed) {
+        samplesRef.current = arr;
         setSamples([...arr]);
         elevationSource.setPinned(new Set([...sampleTiles.values()].flat()));
       }
     };
 
-    // fit to route bounds so the whole route is covered (see spec).
-    // resize first: the panel docks below the map, shrinking its container,
-    // and the fit must be computed against the new size
-    map.resize();
-    map.fitBounds(boundsOf(route.points), { padding: 80, duration: 600 });
-    map.once('idle', () => {
-      if (alive) void refine(currentZoom(), false);
-    });
+    let timer: number | undefined;
+    if (fitOnOpen && !fittedRef.current) {
+      // fresh open in view mode: fit the camera to the route (see spec).
+      // resize first: the panel docks below the map, shrinking its container,
+      // and the fit must be computed against the new size
+      fittedRef.current = true;
+      samplesRef.current = arr;
+      setSamples([...arr]); // shows the loading state
+      map.resize();
+      map.fitBounds(boundsOf(route.points), { padding: 80, duration: 600 });
+      map.once('idle', () => {
+        if (alive) void refine(currentZoom(), false);
+      });
+    } else {
+      // live geometry edit (or open during editing): update positions
+      // synchronously so the graph, stats, and axes track the drag, seeding
+      // elevations from the previous samples; only the authoritative DEM
+      // re-read is debounced past rapid edits
+      seedElevations(arr, samplesRef.current);
+      samplesRef.current = arr;
+      setSamples([...arr]);
+      timer = window.setTimeout(() => void refine(currentZoom(), false), 250);
+    }
+
     const onMoveEnd = () => void refine(currentZoom(), true);
     map.on('moveend', onMoveEnd);
 
     return () => {
       alive = false;
+      if (timer !== undefined) clearTimeout(timer);
       map.off('moveend', onMoveEnd);
       elevationSource.setPinned([]); // release pins when the panel closes
     };
-  }, [route.id]);
+  }, [route.id, route.points]);
 
   // full-route stats drive the graph's y-scaling (selection must not rescale it)
   const stats = useMemo(() => {

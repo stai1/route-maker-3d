@@ -129,6 +129,10 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
   * **Color** — a color picker supporting **alpha/opacity**.
   * **Width** — stroke width.
 * Editing the route geometry uses the map interaction mechanisms (click to add points, drag handles to move them; see *Reference project* and *Tech stack → Route rendering*).
+* A **live elevation profile** is shown while creating/editing (opens automatically on entering the mode; an **Elevation Profile** toggle button in the details section reopens it if closed). It tracks the draft as geometry changes and does **not** move the camera. Sample positions, stats, axes, and the zoom-window readouts update **synchronously** with each edit (elevations seeded by interpolating the previous samples at the same distance); the authoritative DEM re-read is debounced past rapid edits (e.g. handle drags) and replaces the seeded values when the edit pauses. Live-edit rules:
+  * Any geometry change **clears the profile's range selection**.
+  * The zoom window: at 100% it stays at 100% as the route changes. Otherwise it keeps the **same absolute distances** where possible; if the route shrinks past the window's right edge, the window is **pushed left**, and if pushing would also hit the left edge (window ≥ route length) it is **canceled** back to 100% (and stays there through further changes until re-zoomed).
+  * **Reversing** the route mirrors the zoom window (e.g. 15–20 mi of a 20 mi route becomes 0–5 mi).
 * The mode ends on **Save** or **Cancel**:
   * **Save** — finalizes the route (geometry + details) and exits create/edit mode.
   * **Cancel** — discards changes made in this session and exits create/edit mode.

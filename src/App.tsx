@@ -58,6 +58,8 @@ export default function App() {
   } | null>(null);
   /** Route position under the profile-graph cursor. */
   const [profileHover, setProfileHover] = useState<LonLat | null>(null);
+  /** Bumped on each Reverse so the profile can mirror its zoom window. */
+  const [reverseNonce, setReverseNonce] = useState(0);
 
   // selection is scoped to the open profile of the selected route
   useEffect(() => {
@@ -72,6 +74,13 @@ export default function App() {
   const elevationSource = useMemo(() => new ElevationSource(), []);
 
   const selectedRoute = routes.find((r) => r.id === selectedId) ?? null;
+  /** The route the elevation profile describes: the live draft while editing. */
+  const profileRoute = editing ? editing.draft : selectedRoute;
+
+  // editing the route geometry invalidates any profile range selection
+  useEffect(() => {
+    if (editing) setProfileSelection(null);
+  }, [editing?.draft.points]);
 
   // routes to display: editing draft replaces its original / is appended
   const displayRoutes = useMemo(() => {
@@ -106,12 +115,12 @@ export default function App() {
 
   // bolded sub-route on the map for the profile's range selection
   const selectionFC = useMemo<FeatureCollection>(() => {
-    if (!profileSelection || !selectedRoute || selectedRoute.points.length < 2) {
+    if (!profileSelection || !profileRoute || profileRoute.points.length < 2) {
       return { type: 'FeatureCollection', features: [] };
     }
-    const cum = cumulativeDistances(selectedRoute.points);
+    const cum = cumulativeDistances(profileRoute.points);
     const seg = slicePolyline(
-      selectedRoute.points,
+      profileRoute.points,
       cum,
       profileSelection.start,
       profileSelection.end,
@@ -122,15 +131,15 @@ export default function App() {
         {
           type: 'Feature',
           properties: {
-            color: selectedRoute.color,
-            opacity: selectedRoute.opacity,
-            width: selectedRoute.width,
+            color: profileRoute.color,
+            opacity: profileRoute.opacity,
+            width: profileRoute.width,
           },
           geometry: { type: 'LineString', coordinates: densify(seg) },
         },
       ],
     };
-  }, [profileSelection, selectedRoute]);
+  }, [profileSelection, profileRoute]);
 
   const handlesFC = useMemo<FeatureCollection>(
     () => ({
@@ -155,7 +164,7 @@ export default function App() {
   // --- create/edit mode ---
 
   const startNew = () => {
-    setProfileOpen(false);
+    setProfileOpen(true); // live elevation profile during create/edit
     setEditing({
       draft: newRoute(`Route ${routes.length + 1}`),
       isNew: true,
@@ -164,7 +173,7 @@ export default function App() {
   };
 
   const startEdit = (route: Route) => {
-    setProfileOpen(false);
+    setProfileOpen(true); // live elevation profile during create/edit
     setSelectedId(route.id);
     setEditing({
       draft: structuredClone(route),
@@ -208,7 +217,7 @@ export default function App() {
     });
 
   /** Reverse route direction; the active point follows its point. */
-  const reverse = () =>
+  const reverse = () => {
     setEditing((e) => {
       if (!e || e.draft.points.length < 2) return e;
       return {
@@ -218,6 +227,8 @@ export default function App() {
         draft: { ...e.draft, points: e.draft.points.slice().reverse() },
       };
     });
+    setReverseNonce((n) => n + 1);
+  };
 
   const save = () => {
     if (!editing) return;
@@ -412,9 +423,17 @@ export default function App() {
                 }
               />
             </label>
-            <button onClick={reverse} disabled={editing.draft.points.length < 2}>
-              Reverse
-            </button>
+            <div className="button-row">
+              <button onClick={reverse} disabled={editing.draft.points.length < 2}>
+                Reverse
+              </button>
+              <button
+                className={profileOpen ? 'active' : ''}
+                onClick={() => setProfileOpen((v) => !v)}
+              >
+                Elevation Profile
+              </button>
+            </div>
             <div className="button-row">
               <button
                 className="primary"
@@ -470,16 +489,18 @@ export default function App() {
           />
         </div>
 
-        {profileOpen && selectedRoute && !editing && map && (
+        {profileOpen && profileRoute && map && (
           <ProfilePanel
-            key={selectedRoute.id}
-            route={selectedRoute}
+            key={profileRoute.id}
+            route={profileRoute}
             map={map}
             elevationSource={elevationSource}
             unitSystem={settings.unitSystem}
             selection={profileSelection}
             onSelectionChange={setProfileSelection}
             onHover={setProfileHover}
+            fitOnOpen={!editing}
+            reverseNonce={reverseNonce}
             onClose={() => setProfileOpen(false)}
           />
         )}
