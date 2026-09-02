@@ -55,7 +55,7 @@ The elevation profile is a **visualization only** — it is not persisted with t
 The basemap is a **vector-tile style**, so labels are rendered by MapLibre as upright, screen-space text that stays crisp on tilted 3D terrain (no draped-raster warping). Basemaps are token-free. An on-map **layer control** lets the user choose between three layers; **Dark is the default**:
 
 * **Dark** (default), **Light**, and **Standard** — free vector styles from OpenFreeMap (Dark / Positron / Bright respectively; open-licensed community styles, keyless). "Standard" is OSM Bright, the general-purpose full-color style. Switching styles is a `map.setStyle(...)` call.
-* **Satellite** — a raster imagery layer (e.g. ESRI World Imagery via XYZ, attribution required) shown under the vector label layers, so place labels remain upright and legible over imagery.
+* **Satellite** — a raster imagery layer (e.g. ESRI World Imagery via XYZ, attribution required) shown under a **whitelisted subset** of the Standard style's vector label layers, so labels remain upright and legible over imagery. The whitelist keys on OpenMapTiles source-layers (stable schema; fails safe if the style gains new layers): place names and water names — airports, POIs, road names/shields, and one-way arrows are excluded. A **density filter** further thins the remaining labels by inflating their collision boxes (`text-padding` raised from the default 2px to 16px), letting MapLibre's collision engine enforce the spacing.
 
 Because labels come from the vector style itself, there is no separate label source to design or maintain. Minor known behaviors to watch: labels behind a hill can "show through" (mitigated with MapLibre's `text-occlusion-opacity`), and slight label pop-in as DEM tiles load.
 
