@@ -80,7 +80,7 @@ File formats are a **serialization concern of the app, independent of the render
 
 **KML/KMZ is the primary format** — it carries per-route style losslessly and matches the Google-Earth premise of the app. Import and export are hand-implemented against the internal model (a small XML read/write, e.g. via `@tmcw/togeojson` for parsing plus a matching writer), not delegated to the renderer:
 
-* Each route ↔ a `<Placemark>` with a `<LineString>`; multiple routes group under a `<Document>`/`<Folder>`.
+* Each route ↔ a `<Placemark>` with a `<LineString>`; multiple routes group under a `<Document>`/`<Folder>`. Import resolves styles referenced via `<styleUrl>` including **`<StyleMap>` indirection** (Google Earth wraps styles in a normal/highlight StyleMap; the `normal` pair's style is used).
 * Style ↔ a native `<LineStyle>` with `<color>` and `<width>`. KML color is **`aabbggrr`** (alpha, then blue-green-red — reverse of RGB); the serializer converts to/from our `#RRGGBB` + opacity.
 * Coordinates are written as 2D lon/lat (no Z), consistent with the model; draping on display is left to the renderer.
 * **KMZ** is a ZIP wrapping `doc.kml`; support reading both, export plain KML by default and KMZ when bundling is needed.

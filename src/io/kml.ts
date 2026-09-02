@@ -103,6 +103,26 @@ export function kmlToRoutes(kmlText: string): Omit<Route, 'id'>[] {
     if (id) sharedStyles.set(id, parseLineStyle(styleEl));
   }
 
+  // StyleMap indirection (used by Google Earth): a styleUrl may point at a
+  // <StyleMap id> whose 'normal' Pair points at (or inlines) the real Style.
+  const styleMapTargets = new Map<string, string>();
+  for (const sm of Array.from(doc.getElementsByTagName('StyleMap'))) {
+    const id = sm.getAttribute('id');
+    if (!id) continue;
+    for (const pair of Array.from(sm.getElementsByTagName('Pair'))) {
+      if (pair.getElementsByTagName('key')[0]?.textContent?.trim() !== 'normal') {
+        continue;
+      }
+      const url = pair.getElementsByTagName('styleUrl')[0]?.textContent?.trim();
+      if (url?.startsWith('#')) {
+        styleMapTargets.set(id, url.slice(1));
+      } else {
+        const inline = pair.getElementsByTagName('Style')[0];
+        if (inline) sharedStyles.set(id, parseLineStyle(inline));
+      }
+    }
+  }
+
   const routes: Omit<Route, 'id'>[] = [];
   for (const pm of Array.from(doc.getElementsByTagName('Placemark'))) {
     const lineString = pm.getElementsByTagName('LineString')[0];
@@ -115,11 +135,16 @@ export function kmlToRoutes(kmlText: string): Omit<Route, 'id'>[] {
     }
     if (points.length < 2) continue;
 
-    // inline <Style> takes precedence; else resolve <styleUrl>#id
+    // inline <Style> takes precedence; else resolve <styleUrl>#id,
+    // following StyleMap indirection to the 'normal' style
     let style = parseLineStyle(pm.getElementsByTagName('Style')[0] ?? null);
     if (style.color === undefined && style.width === undefined) {
       const url = pm.getElementsByTagName('styleUrl')[0]?.textContent?.trim();
-      if (url?.startsWith('#')) style = sharedStyles.get(url.slice(1)) ?? {};
+      if (url?.startsWith('#')) {
+        let id = url.slice(1);
+        id = styleMapTargets.get(id) ?? id;
+        style = sharedStyles.get(id) ?? {};
+      }
     }
 
     const name =
