@@ -1,0 +1,294 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: #16161c;
+  color: #e3e3e8;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+/* --- sidebar --- */
+
+.sidebar {
+  width: 300px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: #1d1d25;
+  border-right: 1px solid #2c2c38;
+  overflow-y: auto;
+}
+
+.sidebar h1 {
+  font-size: 17px;
+  margin: 0 0 4px;
+}
+
+.sidebar h2 {
+  font-size: 14px;
+  margin: 0;
+}
+
+.list-section,
+.details-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.list-section.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.details-section {
+  border-top: 1px solid #2c2c38;
+  padding-top: 12px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: #9a9aa8;
+}
+
+.distance {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e3e3e8;
+}
+
+.route-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #2c2c38;
+  border-radius: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.route-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #26262f;
+}
+
+.route-list li:last-child {
+  border-bottom: none;
+}
+
+.route-list li:hover {
+  background: #26262f;
+}
+
+.route-list li.selected {
+  background: #2d3a55;
+}
+
+.route-list li.empty {
+  color: #77778a;
+  cursor: default;
+}
+
+.route-list li.empty:hover {
+  background: none;
+}
+
+.swatch {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 3px;
+  border: 1px solid #00000055;
+}
+
+.route-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- controls --- */
+
+button {
+  font: inherit;
+  color: inherit;
+  background: #2b2b36;
+  border: 1px solid #3a3a48;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #343442;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.primary {
+  background: #2f5cff;
+  border-color: #2f5cff;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #4a6fff;
+}
+
+button.active {
+  background: #2d3a55;
+  border-color: #4a6fff;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+}
+
+.button-row button {
+  flex: 1;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #b9b9c6;
+}
+
+input[type='text'],
+input[type='number'] {
+  font: inherit;
+  color: inherit;
+  background: #16161c;
+  border: 1px solid #3a3a48;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-row input[type='color'] {
+  width: 40px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #3a3a48;
+  border-radius: 6px;
+  background: none;
+}
+
+.color-row input[type='range'] {
+  flex: 1;
+}
+
+.opacity-label {
+  width: 38px;
+  text-align: right;
+  color: #e3e3e8;
+}
+
+/* --- map area --- */
+
+.map-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.map-container {
+  position: absolute;
+  inset: 0;
+}
+
+.layer-control {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  background: #1d1d25e6;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid #2c2c38;
+}
+
+.layer-control button {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* --- elevation profile panel --- */
+
+.profile-panel {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  background: #1d1d25f0;
+  border: 1px solid #2c2c38;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-title {
+  font-weight: 600;
+}
+
+.profile-stats {
+  font-weight: 400;
+  color: #9a9aa8;
+}
+
+.profile-header button {
+  padding: 2px 8px;
+}
+
+.profile-svg {
+  width: 100%;
+  height: 150px;
+  display: block;
+}
+
+.profile-empty {
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #77778a;
+}
