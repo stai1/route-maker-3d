@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
-import type { Route } from '../model';
-import { boundsOf } from '../geo';
+import type { LonLat, Route } from '../model';
+import { boundsOf, cumulativeDistances, pointAlong } from '../geo';
 import { ElevationSource, MAX_ELEVATION_ZOOM } from '../elevation/ElevationSource';
 import { makeProfileSamples, type ProfileSample } from '../elevation/profile';
 import { MILE_METERS, formatAltitude, formatDistance, type UnitSystem } from '../units';
@@ -38,6 +38,8 @@ interface Props {
   unitSystem: UnitSystem;
   selection: ProfileSelection | null;
   onSelectionChange: (sel: ProfileSelection | null) => void;
+  /** Route position under the graph cursor, for the map marker. */
+  onHover: (p: LonLat | null) => void;
   onClose: () => void;
 }
 
@@ -56,6 +58,7 @@ export default function ProfilePanel({
   unitSystem,
   selection,
   onSelectionChange,
+  onHover,
   onClose,
 }: Props) {
   const [samples, setSamples] = useState<ProfileSample[]>([]);
@@ -175,6 +178,35 @@ export default function ProfilePanel({
 
   const grade = (v: number) => `${v.toFixed(1)}%`;
 
+  // --- hover cursor: vertical line + tooltip + map marker ---
+  const [hoverFrac, setHoverFrac] = useState<number | null>(null);
+  const cum = useMemo(() => cumulativeDistances(route.points), [route.points]);
+
+  const hoverInfo = useMemo(() => {
+    if (hoverFrac === null || !stats || samples.length < 2) return null;
+    const d = hoverFrac * stats.total;
+    // bracketing samples (uniform spacing) for interpolation
+    let i1 = samples.findIndex((s) => s.d >= d);
+    if (i1 <= 0) i1 = 1;
+    const s0 = samples[i1 - 1];
+    const s1 = samples[i1];
+    let ele: number | null = null;
+    let segGrade: number | null = null;
+    if (s0.ele !== null && s1.ele !== null && s1.d > s0.d) {
+      const t = (d - s0.d) / (s1.d - s0.d);
+      ele = s0.ele + (s1.ele - s0.ele) * t;
+      segGrade = ((s1.ele - s0.ele) / (s1.d - s0.d)) * 100;
+    }
+    const [lon, lat] = pointAlong(route.points, cum, d);
+    return { d, ele, grade: segGrade, lon, lat };
+  }, [hoverFrac, samples, stats, cum, route.points]);
+
+  // marker position flows up to the map; cleared on leave and unmount
+  useEffect(() => {
+    onHover(hoverInfo ? [hoverInfo.lon, hoverInfo.lat] : null);
+  }, [hoverInfo]);
+  useEffect(() => () => onHover(null), []);
+
   // --- shift+drag range selection ---
   const dragRef = useRef<{ startFrac: number; moved: boolean } | null>(null);
 
@@ -192,9 +224,11 @@ export default function ProfilePanel({
   };
 
   const onPlotPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const hoverF = fracFromEvent(e);
+    setHoverFrac(hoverF);
     const drag = dragRef.current;
     if (!drag || !stats) return;
-    const frac = fracFromEvent(e);
+    const frac = hoverF;
     if (!drag.moved && Math.abs(frac - drag.startFrac) * plotWidth < 3) return;
     drag.moved = true;
     onSelectionChange({
@@ -324,6 +358,7 @@ export default function ProfilePanel({
             onPointerDown={onPlotPointerDown}
             onPointerMove={onPlotPointerMove}
             onPointerUp={onPlotPointerUp}
+            onPointerLeave={() => setHoverFrac(null)}
             onContextMenu={(e) => e.preventDefault()}
           >
             <svg
@@ -371,6 +406,17 @@ export default function ProfilePanel({
                   </>
                 );
               })()}
+              {hoverFrac !== null && (
+                <line
+                  x1={hoverFrac * W}
+                  x2={hoverFrac * W}
+                  y1={0}
+                  y2={H}
+                  stroke="#ffffff"
+                  strokeOpacity="0.55"
+                  strokeWidth="0.75"
+                />
+              )}
               {axes?.yTicks.map((t) => (
                 <line
                   key={`y${t.frac}`}
@@ -396,6 +442,26 @@ export default function ProfilePanel({
                 />
               ))}
             </svg>
+            {hoverInfo && (
+              <div
+                className="profile-tooltip"
+                style={{
+                  left: `${(hoverInfo.d / Math.max(stats.total, 1)) * 100}%`,
+                  transform:
+                    hoverFrac !== null && hoverFrac > 0.8
+                      ? 'translateX(calc(-100% - 8px))'
+                      : 'translateX(8px)',
+                }}
+              >
+                <div>{formatDistance(hoverInfo.d, unitSystem)}</div>
+                <div>
+                  {hoverInfo.ele !== null
+                    ? formatAltitude(hoverInfo.ele, unitSystem)
+                    : '–'}
+                </div>
+                <div>{hoverInfo.grade !== null ? grade(hoverInfo.grade) : '–'}</div>
+              </div>
+            )}
             {/* labels live in HTML — text inside the stretched SVG would distort */}
             {axes?.yTicks.map((t) => (
               <span

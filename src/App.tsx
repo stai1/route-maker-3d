@@ -56,6 +56,8 @@ export default function App() {
     start: number;
     end: number;
   } | null>(null);
+  /** Route position under the profile-graph cursor. */
+  const [profileHover, setProfileHover] = useState<LonLat | null>(null);
 
   // selection is scoped to the open profile of the selected route
   useEffect(() => {
@@ -442,6 +444,7 @@ export default function App() {
           routesFC={routesFC}
           handlesFC={handlesFC}
           selectionFC={selectionFC}
+          hoverPoint={profileHover}
           selectedId={selectedId}
           editing={editing !== null}
           onReady={setMap}
@@ -474,6 +477,7 @@ export default function App() {
             unitSystem={settings.unitSystem}
             selection={profileSelection}
             onSelectionChange={setProfileSelection}
+            onHover={setProfileHover}
             onClose={() => setProfileOpen(false)}
           />
         )}

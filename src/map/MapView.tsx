@@ -21,6 +21,8 @@ export interface MapViewProps {
   handlesFC: FeatureCollection;
   /** Bolded sub-route for the elevation profile's range selection. */
   selectionFC: FeatureCollection;
+  /** Route position under the profile-graph cursor, shown as a marker. */
+  hoverPoint: LonLat | null;
   selectedId: string | null;
   editing: boolean;
   onReady: (map: MLMap) => void;
@@ -452,6 +454,28 @@ export default function MapView(props: MapViewProps) {
       mapRef.current = null;
     };
   }, []);
+
+  // marker at the profile-graph cursor's route position (a DOM marker, so it
+  // survives style switches without transformStyle bookkeeping)
+  const hoverMarkerRef = useRef<maplibregl.Marker | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (props.hoverPoint) {
+      if (!hoverMarkerRef.current) {
+        const el = document.createElement('div');
+        el.className = 'route-hover-marker';
+        hoverMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat(props.hoverPoint)
+          .addTo(map);
+      } else {
+        hoverMarkerRef.current.setLngLat(props.hoverPoint);
+      }
+    } else if (hoverMarkerRef.current) {
+      hoverMarkerRef.current.remove();
+      hoverMarkerRef.current = null;
+    }
+  }, [props.hoverPoint]);
 
   // label visibility toggle
   useEffect(() => {

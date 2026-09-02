@@ -512,6 +512,28 @@ input[type='number'] {
   display: block;
 }
 
+.profile-tooltip {
+  position: absolute;
+  top: 8px;
+  padding: 3px 8px;
+  background: #16161cee;
+  border: 1px solid #3a3a48;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #e3e3e8;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.route-hover-marker {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #6cf;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
 .profile-tick-y {
   position: absolute;
   left: 4px;

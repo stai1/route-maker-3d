@@ -13,14 +13,20 @@ export interface ProfileSample {
 }
 
 /** Max samples per profile — keeps the array bounded regardless of route length (see spec). */
-export const MAX_PROFILE_SAMPLES = 400;
+export const MAX_PROFILE_SAMPLES = 2000;
+
+/** Target sample spacing along the route, meters. */
+export const PROFILE_SAMPLE_SPACING = 5;
 
 /** Sample positions along the route: target resolution derived from length, capped. */
 export function makeProfileSamples(points: LonLat[]): ProfileSample[] {
   if (points.length < 2) return [];
   const cum = cumulativeDistances(points);
   const total = cum[cum.length - 1];
-  const n = Math.min(MAX_PROFILE_SAMPLES, Math.max(2, Math.floor(total / 25) + 2));
+  const n = Math.min(
+    MAX_PROFILE_SAMPLES,
+    Math.max(2, Math.floor(total / PROFILE_SAMPLE_SPACING) + 2),
+  );
   const samples: ProfileSample[] = [];
   for (let i = 0; i < n; i++) {
     const d = (total * i) / (n - 1);
