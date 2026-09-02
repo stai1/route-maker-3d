@@ -230,6 +230,13 @@ input[type='number'] {
   position: absolute;
   top: 10px;
   right: 10px;
+  z-index: 3; /* expanded panel opens over the controls stacked below */
+}
+
+/* stack MapLibre's top-right controls below the layers button, forming one
+   column of controls at the top right (clear of the elevation profile) */
+.map-wrap .maplibregl-ctrl-top-right {
+  top: 46px;
 }
 
 .layer-menu-toggle {

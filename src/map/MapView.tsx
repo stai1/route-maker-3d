@@ -36,20 +36,20 @@ const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] };
 const SKY_DAY = {
   'sky-color': '#2e6bb3',
   'horizon-color': '#cfe4f7',
-  'fog-color': '#cfe4f7',
+  'fog-color': '#6289ab',
   'sky-horizon-blend': 0.7,
   'horizon-fog-blend': 0.8,
-  'fog-ground-blend': 0.85,
+  'fog-ground-blend': 0.75,
 };
 
 /** Dusk sky for the dark basemap: indigo zenith with a muted amber horizon glow. */
 const SKY_DUSK = {
   'sky-color': '#0e1a38',
-  'horizon-color': '#5c412f',
-  'fog-color': '#352e37',
+  'horizon-color': '#2d2119',
+  'fog-color': '#1a141c',
   'sky-horizon-blend': 0.5,
   'horizon-fog-blend': 0.8,
-  'fog-ground-blend': 0.85,
+  'fog-ground-blend': 0.75,
 };
 
 /**
@@ -145,6 +145,19 @@ export default function MapView(props: MapViewProps) {
     mapRef.current = map;
     // keyboard camera panning is out of scope (see spec: Camera controls)
     map.keyboard.disable();
+
+    // center-on-my-location button (the 2D route maker's ⦿ control); top-right,
+    // in the controls column below the layers menu (kept clear of the
+    // elevation-profile panel along the bottom)
+    map.addControl(
+      new maplibregl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        fitBoundsOptions: { maxZoom: 16 }, // match the 2D app's zoom-16 recenter
+        trackUserLocation: true,
+        showAccuracyCircle: true,
+      }),
+      'top-right',
+    );
 
     // keep camera position/orientation in the query params so refresh restores it
     const writeCameraToUrl = () => {

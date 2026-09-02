@@ -122,9 +122,15 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
   * **Cancel** — discards changes made in this session and exits create/edit mode.
 * On exit, the route list is re-enabled.
 
+### Geolocate control
+
+A **center-on-my-location button** (MapLibre's standard `GeolocateControl`) recenters the camera on the user's position (zoom ≈ 16, matching the 2D route maker's ⦿ control) and shows a location dot with an accuracy circle, tracking the position while active. Requires a secure context (localhost / HTTPS) and the user granting the browser's geolocation permission.
+
 ### Base map layer control
 
-A standard web-map **layers control** (collapsed button with a layers icon, top-right; expands on hover/click) switches the basemap between **Dark** (default), **Light**, and **Satellite** as radio options (see *Tech stack → Base map & labels*), and includes a **Labels** overlay checkbox (on by default; toggles the style's symbol layers), a **Hillshade intensity slider** (0–100%, default 20%, driving the DEM-derived relief layer's `hillshade-exaggeration`; 0% hides the layer; right-click resets to 20%), and a **terrain exaggeration slider** (0×–3×, default 1×; right-click resets to 1×). Exaggeration is display-only — elevation profiles and queries stay true to the data.
+Map controls are arranged as a **single column at the top right** (layers control, then geolocate), keeping the bottom of the map clear for the elevation-profile panel.
+
+A standard web-map **layers control** (collapsed button with a layers icon; expands on hover/click) switches the basemap between **Dark** (default), **Light**, and **Satellite** as radio options (see *Tech stack → Base map & labels*), and includes a **Labels** overlay checkbox (on by default; toggles the style's symbol layers), a **Hillshade intensity slider** (0–100%, default 20%, driving the DEM-derived relief layer's `hillshade-exaggeration`; 0% hides the layer; right-click resets to 20%), and a **terrain exaggeration slider** (0×–3×, default 1×; right-click resets to 1×). Exaggeration is display-only — elevation profiles and queries stay true to the data.
 
 ## Misc details
 * The route line should follow the contour of the Earth mesh. The line should appear at a constant width on the screen (i.e. unaffected by angle of viewing or distance from the camera). The handles at each point of the route (as in the 2D route maker) should also appear as circles on the screen. (Realized per *Tech stack → Route rendering*.)
