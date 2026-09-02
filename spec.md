@@ -110,10 +110,13 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
 ### Route list & selection
 
 * A **list of all routes** is shown. Clicking a route in the list **selects** it; clicking a route on the map also selects it. Selection is shared — the two stay in sync, and at most one route is selected at a time.
-* Actions sit alongside the list and are enabled based on selection:
-  * **Show Elevation Profile** — enabled only when a route is selected. Clicking it opens a **panel showing the route's elevation-profile graph** (see *Tech stack → Elevation data*; opening the panel is what fits the camera to the route bounds and begins profile computation).
-  * **Edit** — enabled only when a route is selected. Clicking it enters **create/edit mode** on that route.
-  * (Creating a new route also enters create/edit mode, activated by its own button — the tool is not always active.)
+* **Right-clicking a route in the list** selects it and opens a **context menu** of per-route actions:
+  * **Edit** — enters **create/edit mode** on that route.
+  * **Show Elevation Profile** — opens a **panel showing the route's elevation-profile graph** (see *Tech stack → Elevation data*; opening the panel is what fits the camera to the route bounds and begins profile computation).
+  * **Export KML** — exports that route as a KML file.
+  * **Export GPX** — exports that route as GPX (geometry only).
+  * **Delete** — removes the route, after a confirmation prompt.
+* Buttons alongside the list: **New Route** (enters create/edit mode on a fresh route — the tool is not always active) and **Import** (KML/KMZ/GPX; multiple files can be selected at once — failures are reported per file without blocking the rest).
 
 ### Create/edit mode
 

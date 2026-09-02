@@ -213,6 +213,46 @@ input[type='number'] {
   color: #e3e3e8;
 }
 
+/* --- route context menu --- */
+
+.context-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.context-menu {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 4px;
+  background: #1d1d25;
+  border: 1px solid #3a3a48;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.context-menu button {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 5px;
+}
+
+.context-menu button:hover {
+  background: #2d3a55;
+}
+
+.context-menu button.danger {
+  color: #ff7a6e;
+}
+
+.context-menu button.danger:hover {
+  background: #4a2626;
+}
+
 /* --- map area --- */
 
 .map-wrap {

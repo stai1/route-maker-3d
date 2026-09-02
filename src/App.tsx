@@ -42,6 +42,11 @@ export default function App() {
   const [buildings, setBuildings] = useState(false);
   const [exaggeration, setExaggeration] = useState(1);
   const [map, setMap] = useState<MLMap | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    routeId: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const elevationSource = useMemo(() => new ElevationSource(), []);
 
@@ -109,13 +114,13 @@ export default function App() {
     });
   };
 
-  const startEdit = () => {
-    if (!selectedRoute) return;
+  const startEdit = (route: Route) => {
     setProfileOpen(false);
+    setSelectedId(route.id);
     setEditing({
-      draft: structuredClone(selectedRoute),
+      draft: structuredClone(route),
       isNew: false,
-      activeIndex: selectedRoute.points.length - 1,
+      activeIndex: route.points.length - 1,
     });
   };
 
@@ -187,34 +192,55 @@ export default function App() {
 
   // --- import/export ---
 
-  const onImportFile = async (file: File) => {
-    try {
-      const name = file.name.toLowerCase();
-      let imported: Omit<Route, 'id'>[];
-      if (name.endsWith('.kmz')) {
-        imported = kmzToRoutes(await file.arrayBuffer());
-      } else if (name.endsWith('.kml')) {
-        imported = kmlToRoutes(await file.text());
-      } else if (name.endsWith('.gpx')) {
-        imported = gpxToRoutes(await file.text());
-      } else {
-        throw new Error('Unsupported file type (use .kml, .kmz, or .gpx)');
+  const onImportFiles = async (files: File[]) => {
+    const withIds: Route[] = [];
+    const failures: string[] = [];
+    for (const file of files) {
+      try {
+        const name = file.name.toLowerCase();
+        let imported: Omit<Route, 'id'>[];
+        if (name.endsWith('.kmz')) {
+          imported = kmzToRoutes(await file.arrayBuffer());
+        } else if (name.endsWith('.kml')) {
+          imported = kmlToRoutes(await file.text());
+        } else if (name.endsWith('.gpx')) {
+          imported = gpxToRoutes(await file.text());
+        } else {
+          throw new Error('unsupported file type (use .kml, .kmz, or .gpx)');
+        }
+        withIds.push(...imported.map((r) => ({ ...r, id: crypto.randomUUID() })));
+      } catch (err) {
+        failures.push(`${file.name}: ${err instanceof Error ? err.message : err}`);
       }
-      const withIds = imported.map((r) => ({ ...r, id: crypto.randomUUID() }));
+    }
+    if (withIds.length) {
       setRoutes((rs) => [...rs, ...withIds]);
-      if (withIds.length) setSelectedId(withIds[withIds.length - 1].id);
-    } catch (err) {
-      alert(`Import failed: ${err instanceof Error ? err.message : err}`);
+      setSelectedId(withIds[withIds.length - 1].id);
+    }
+    if (failures.length) {
+      alert(`Import failed for:\n${failures.join('\n')}`);
     }
   };
 
-  const exportKml = () =>
-    download('routes.kml', routesToKml(routes), 'application/vnd.google-earth.kml+xml');
+  const safeName = (route: Route) => route.name.replace(/[^\w-]+/g, '_') || 'route';
 
-  const exportGpx = () => {
-    if (!selectedRoute) return;
-    const safe = selectedRoute.name.replace(/[^\w-]+/g, '_') || 'route';
-    download(`${safe}.gpx`, routeToGpx(selectedRoute), 'application/gpx+xml');
+  const exportKml = (route: Route) =>
+    download(
+      `${safeName(route)}.kml`,
+      routesToKml([route]),
+      'application/vnd.google-earth.kml+xml',
+    );
+
+  const exportGpx = (route: Route) =>
+    download(`${safeName(route)}.gpx`, routeToGpx(route), 'application/gpx+xml');
+
+  const deleteRoute = (route: Route) => {
+    if (!confirm(`Delete "${route.name}"?`)) return;
+    setRoutes((rs) => rs.filter((r) => r.id !== route.id));
+    if (selectedId === route.id) {
+      setSelectedId(null);
+      setProfileOpen(false);
+    }
   };
 
   const listDisabled = editing !== null;
@@ -225,9 +251,14 @@ export default function App() {
         <h1>Route Maker 3D</h1>
 
         <div className={`list-section${listDisabled ? ' disabled' : ''}`}>
-          <button className="primary" onClick={startNew} disabled={listDisabled}>
-            + New Route
-          </button>
+          <div className="button-row">
+            <button className="primary" onClick={startNew} disabled={listDisabled}>
+              + New Route
+            </button>
+            <button onClick={() => fileInputRef.current?.click()} disabled={listDisabled}>
+              Import
+            </button>
+          </div>
 
           <ul className="route-list">
             {routes.length === 0 && <li className="empty">No routes yet</li>}
@@ -236,6 +267,12 @@ export default function App() {
                 key={r.id}
                 className={r.id === selectedId ? 'selected' : ''}
                 onClick={() => select(r.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (listDisabled) return;
+                  select(r.id);
+                  setContextMenu({ routeId: r.id, x: e.clientX, y: e.clientY });
+                }}
               >
                 <span
                   className="swatch"
@@ -246,38 +283,15 @@ export default function App() {
             ))}
           </ul>
 
-          <div className="button-row">
-            <button onClick={startEdit} disabled={listDisabled || !selectedRoute}>
-              Edit
-            </button>
-            <button
-              className={profileOpen ? 'active' : ''}
-              onClick={() => setProfileOpen((v) => !v)}
-              disabled={listDisabled || !selectedRoute}
-            >
-              Show Elevation Profile
-            </button>
-          </div>
-
-          <div className="button-row">
-            <button onClick={() => fileInputRef.current?.click()} disabled={listDisabled}>
-              Import
-            </button>
-            <button onClick={exportKml} disabled={listDisabled || routes.length === 0}>
-              Export KML
-            </button>
-            <button onClick={exportGpx} disabled={listDisabled || !selectedRoute}>
-              Export GPX
-            </button>
-          </div>
           <input
             ref={fileInputRef}
             type="file"
             accept=".kml,.kmz,.gpx"
+            multiple
             hidden
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onImportFile(f);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length) void onImportFiles(files);
               e.target.value = '';
             }}
           />
@@ -402,6 +416,49 @@ export default function App() {
           />
         )}
       </div>
+
+      {contextMenu &&
+        (() => {
+          const route = routes.find((r) => r.id === contextMenu.routeId);
+          if (!route) return null;
+          const close = () => setContextMenu(null);
+          const item = (label: string, action: () => void, className = '') => (
+            <button
+              className={className}
+              onClick={() => {
+                close();
+                action();
+              }}
+            >
+              {label}
+            </button>
+          );
+          return (
+            <div
+              className="context-menu-overlay"
+              onMouseDown={close}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                close();
+              }}
+            >
+              <div
+                className="context-menu"
+                style={{
+                  left: Math.min(contextMenu.x, window.innerWidth - 200),
+                  top: Math.min(contextMenu.y, window.innerHeight - 190),
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {item('Edit', () => startEdit(route))}
+                {item('Show Elevation Profile', () => setProfileOpen(true))}
+                {item('Export KML', () => exportKml(route))}
+                {item('Export GPX', () => exportGpx(route))}
+                {item('Delete', () => deleteRoute(route), 'danger')}
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }
