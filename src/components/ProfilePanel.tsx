@@ -351,10 +351,38 @@ export default function ProfilePanel({
     return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   };
 
+  // alt/option+press: smoothly pan the camera to the route location under the
+  // cursor, following while dragging until mouseup or the modifier is released
+  const followCameraRef = useRef(false);
+
+  const panCameraToFrac = (frac: number) => {
+    if (!stats) return;
+    const [lon, lat] = pointAlong(route.points, cum, screenFracToD(frac));
+    map.easeTo({
+      center: [lon, lat],
+      duration: 100,
+      easing: (t) => 1 - Math.pow(1 - t, 3), // cubic ease-out
+    });
+  };
+
+  useEffect(() => {
+    // modifier released without a pointer event: stop following
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') followCameraRef.current = false;
+    };
+    window.addEventListener('keyup', onKeyUp);
+    return () => window.removeEventListener('keyup', onKeyUp);
+  }, []);
+
   const onPlotPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // left-drag selects; a left click without a drag clears
     if (e.button !== 0 || !stats) return;
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (e.altKey) {
+      followCameraRef.current = true;
+      panCameraToFrac(fracFromEvent(e));
+      return; // camera-follow mode; no selection
+    }
+    // left-drag selects; a left click without a drag clears
     dragRef.current = { startFrac: fracFromEvent(e), moved: false };
     onSelectionChange(null); // starting anew clears the old
   };
@@ -362,6 +390,11 @@ export default function ProfilePanel({
   const onPlotPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const hoverF = fracFromEvent(e);
     setHoverFrac(hoverF);
+    if (followCameraRef.current) {
+      if (e.altKey) panCameraToFrac(hoverF);
+      else followCameraRef.current = false;
+      return;
+    }
     const drag = dragRef.current;
     if (!drag || !stats) return;
     const frac = hoverF;
@@ -374,6 +407,7 @@ export default function ProfilePanel({
 
   const onPlotPointerUp = () => {
     dragRef.current = null;
+    followCameraRef.current = false;
   };
 
   const W = 800;
