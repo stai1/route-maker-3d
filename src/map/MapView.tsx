@@ -11,6 +11,8 @@ const TERRAIN_TILES =
 export interface MapViewProps {
   basemap: BasemapKind;
   showLabels: boolean;
+  /** Relief-shading intensity 0..1 (0 hides the layer); drives hillshade-exaggeration. */
+  hillshade: number;
   /** Terrain exaggeration multiplier (display-only; elevation queries stay true). */
   exaggeration: number;
   routesFC: FeatureCollection;
@@ -128,6 +130,36 @@ export default function MapView(props: MapViewProps) {
       map.setTerrain({ source: 'terrain-dem', exaggeration: p.exaggeration });
       // globe projection (MapLibre v5)
       (map as any).setProjection?.({ type: 'globe' });
+
+      // hillshade: relief shading from the same DEM tiles (separate source, per
+      // the MapLibre terrain example), inserted below labels so text stays clean
+      if (!map.getSource('hillshade-dem')) {
+        map.addSource('hillshade-dem', {
+          type: 'raster-dem',
+          tiles: [TERRAIN_TILES],
+          encoding: 'terrarium',
+          tileSize: 256,
+          maxzoom: 15,
+        });
+      }
+      const firstSymbolId = map.getStyle().layers?.find((l) => l.type === 'symbol')?.id;
+      if (!map.getLayer('hillshade')) {
+        map.addLayer(
+          {
+            id: 'hillshade',
+            type: 'hillshade',
+            source: 'hillshade-dem',
+            layout: { visibility: p.hillshade > 0 ? 'visible' : 'none' },
+            paint: { 'hillshade-exaggeration': p.hillshade },
+          } as any,
+          firstSymbolId,
+        );
+      } else {
+        // style merges append kept layers at the end; restore position under labels
+        if (firstSymbolId) map.moveLayer('hillshade', firstSymbolId);
+        map.setLayoutProperty('hillshade', 'visibility', p.hillshade > 0 ? 'visible' : 'none');
+        map.setPaintProperty('hillshade', 'hillshade-exaggeration', p.hillshade);
+      }
 
       if (!map.getSource('routes')) {
         map.addSource('routes', { type: 'geojson', data: p.routesFC as any });
@@ -299,6 +331,24 @@ export default function MapView(props: MapViewProps) {
     if (map) applyLabelVisibility(map, props.showLabels);
   }, [props.showLabels]);
 
+  // live hillshade intensity
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      if (map.getLayer('hillshade')) {
+        map.setLayoutProperty(
+          'hillshade',
+          'visibility',
+          props.hillshade > 0 ? 'visible' : 'none',
+        );
+        map.setPaintProperty('hillshade', 'hillshade-exaggeration', props.hillshade);
+      }
+    } catch {
+      // style not ready; style.load applies it
+    }
+  }, [props.hillshade]);
+
   // live terrain exaggeration (re-scales the mesh without refetching tiles)
   useEffect(() => {
     const map = mapRef.current;
@@ -336,10 +386,15 @@ export default function MapView(props: MapViewProps) {
           transformStyle: (previous, next) => {
             if (!previous) return next;
             const keepSources: Record<string, any> = {};
-            for (const id of ['terrain-dem', 'routes', 'handles']) {
+            for (const id of ['terrain-dem', 'hillshade-dem', 'routes', 'handles']) {
               if (previous.sources?.[id]) keepSources[id] = previous.sources[id];
             }
-            const keepIds = ['route-selected-casing', 'routes-line', 'route-handles'];
+            const keepIds = [
+              'hillshade',
+              'route-selected-casing',
+              'routes-line',
+              'route-handles',
+            ];
             const keepLayers = (previous.layers ?? []).filter((l) =>
               keepIds.includes(l.id),
             );

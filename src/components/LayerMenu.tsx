@@ -6,6 +6,8 @@ interface Props {
   onBasemap: (k: BasemapKind) => void;
   showLabels: boolean;
   onShowLabels: (v: boolean) => void;
+  hillshade: number;
+  onHillshade: (v: number) => void;
   exaggeration: number;
   onExaggeration: (v: number) => void;
 }
@@ -26,6 +28,8 @@ export default function LayerMenu({
   onBasemap,
   showLabels,
   onShowLabels,
+  hillshade,
+  onHillshade,
   exaggeration,
   onExaggeration,
 }: Props) {
@@ -71,6 +75,24 @@ export default function LayerMenu({
             Labels
           </label>
           <hr />
+          <label
+            className="slider-row"
+            title="Hillshade intensity — right-click to reset to 20%"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onHillshade(0.2);
+            }}
+          >
+            <span>Hillshade {Math.round(hillshade * 100)}%</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={hillshade}
+              onChange={(e) => onHillshade(Number(e.target.value))}
+            />
+          </label>
           <label
             className="slider-row"
             title="Terrain exaggeration — right-click to reset to 1×"

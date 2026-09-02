@@ -59,6 +59,8 @@ The basemap is a **vector-tile style**, so labels are rendered by MapLibre as up
 
 Because labels come from the vector style itself, there is no separate label source to design or maintain. Minor known behaviors to watch: labels behind a hill can "show through" (mitigated with MapLibre's `text-occlusion-opacity`), and slight label pop-in as DEM tiles load.
 
+A **hillshade overlay** (MapLibre's `hillshade` layer type, computed on the GPU from the same Terrarium DEM tiles as the terrain — token-free, no extra tile source) adds relief shading so mountain shapes read clearly where the basemap has no texture (undeveloped areas). It sits below the label layers and works over all three basemaps.
+
 ### Route rendering (mapping requirements to MapLibre)
 
 * **Line follows the Earth contour + constant on-screen width.** Each route is a GeoJSON `LineString` in a `line` layer. With terrain enabled, MapLibre auto-drapes lines onto the terrain so they follow the contour, and `line-width` is specified in screen pixels — giving constant on-screen width regardless of tilt or zoom. Long straight segments should be densified (interpolated vertices) so a segment between far-apart points doesn't cut through hills; watch for z-fighting flicker of co-planar draped lines at high exaggeration.
@@ -120,7 +122,7 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
 
 ### Base map layer control
 
-A standard web-map **layers control** (collapsed button with a layers icon, top-right; expands on hover/click) switches the basemap between **Dark** (default), **Light**, and **Satellite** as radio options (see *Tech stack → Base map & labels*), and includes a **Labels** overlay checkbox that shows/hides all basemap labels (implemented by toggling visibility of the style's symbol layers; on by default), plus a **terrain exaggeration slider** (0×–3×, default 1×; right-click the slider to reset to 1×). Exaggeration is display-only — elevation profiles and queries stay true to the data.
+A standard web-map **layers control** (collapsed button with a layers icon, top-right; expands on hover/click) switches the basemap between **Dark** (default), **Light**, and **Satellite** as radio options (see *Tech stack → Base map & labels*), and includes a **Labels** overlay checkbox (on by default; toggles the style's symbol layers), a **Hillshade intensity slider** (0–100%, default 20%, driving the DEM-derived relief layer's `hillshade-exaggeration`; 0% hides the layer; right-click resets to 20%), and a **terrain exaggeration slider** (0×–3×, default 1×; right-click resets to 1×). Exaggeration is display-only — elevation profiles and queries stay true to the data.
 
 ## Misc details
 * The route line should follow the contour of the Earth mesh. The line should appear at a constant width on the screen (i.e. unaffected by angle of viewing or distance from the camera). The handles at each point of the route (as in the 2D route maker) should also appear as circles on the screen. (Realized per *Tech stack → Route rendering*.)
