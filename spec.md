@@ -120,7 +120,7 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
 
 ### Base map layer control
 
-An on-map control switches the basemap layer between **Dark** (default), **Light**, and **Satellite** (see *Tech stack → Base map & labels*).
+A standard web-map **layers control** (collapsed button with a layers icon, top-right; expands on hover/click) switches the basemap between **Dark** (default), **Light**, and **Satellite** as radio options (see *Tech stack → Base map & labels*), and includes a **Labels** overlay checkbox that shows/hides all basemap labels (implemented by toggling visibility of the style's symbol layers; on by default), plus a **terrain exaggeration slider** (0×–3×, default 1×; right-click the slider to reset to 1×). Exaggeration is display-only — elevation profiles and queries stay true to the data.
 
 ## Misc details
 * The route line should follow the contour of the Earth mesh. The line should appear at a constant width on the screen (i.e. unaffected by angle of viewing or distance from the camera). The handles at each point of the route (as in the 2D route maker) should also appear as circles on the screen. (Realized per *Tech stack → Route rendering*.)

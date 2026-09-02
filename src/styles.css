@@ -226,21 +226,64 @@ input[type='number'] {
   inset: 0;
 }
 
-.layer-control {
+.layer-menu {
   position: absolute;
   top: 10px;
   right: 10px;
-  display: flex;
-  gap: 4px;
-  background: #1d1d25e6;
-  padding: 4px;
-  border-radius: 8px;
-  border: 1px solid #2c2c38;
 }
 
-.layer-control button {
-  padding: 5px 10px;
-  font-size: 12px;
+.layer-menu-toggle {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: #1d1d25e6;
+  border: 1px solid #2c2c38;
+  border-radius: 8px;
+}
+
+.layer-menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 130px;
+  padding: 10px 12px;
+  background: #1d1d25f0;
+  border: 1px solid #2c2c38;
+  border-radius: 8px;
+}
+
+.layer-menu-panel label {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: #e3e3e8;
+  cursor: pointer;
+}
+
+.layer-menu-panel input {
+  accent-color: #2f5cff;
+  margin: 0;
+}
+
+.layer-menu-panel hr {
+  width: 100%;
+  margin: 2px 0;
+  border: none;
+  border-top: 1px solid #2c2c38;
+}
+
+.layer-menu-panel .slider-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.layer-menu-panel .slider-row input[type='range'] {
+  width: 100%;
 }
 
 /* --- elevation profile panel --- */

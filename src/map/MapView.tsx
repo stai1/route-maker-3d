@@ -10,6 +10,9 @@ const TERRAIN_TILES =
 
 export interface MapViewProps {
   basemap: BasemapKind;
+  showLabels: boolean;
+  /** Terrain exaggeration multiplier (display-only; elevation queries stay true). */
+  exaggeration: number;
   routesFC: FeatureCollection;
   handlesFC: FeatureCollection;
   selectedId: string | null;
@@ -26,6 +29,19 @@ export interface MapViewProps {
 }
 
 const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] };
+
+/** Labels are the basemap's symbol layers; toggling them shows/hides all text. */
+function applyLabelVisibility(map: MLMap, show: boolean): void {
+  try {
+    for (const layer of map.getStyle()?.layers ?? []) {
+      if (layer.type === 'symbol') {
+        map.setLayoutProperty(layer.id, 'visibility', show ? 'visible' : 'none');
+      }
+    }
+  } catch {
+    // style not ready; style.load will re-apply
+  }
+}
 
 interface CameraState {
   center: [number, number];
@@ -109,7 +125,7 @@ export default function MapView(props: MapViewProps) {
           attribution: 'Terrain: Mapzen/AWS Open Data terrain tiles',
         });
       }
-      map.setTerrain({ source: 'terrain-dem', exaggeration: 1 });
+      map.setTerrain({ source: 'terrain-dem', exaggeration: p.exaggeration });
       // globe projection (MapLibre v5)
       (map as any).setProjection?.({ type: 'globe' });
 
@@ -167,6 +183,7 @@ export default function MapView(props: MapViewProps) {
           },
         } as any);
       }
+      applyLabelVisibility(map, p.showLabels);
     };
 
     map.on('style.load', applyContent);
@@ -275,6 +292,25 @@ export default function MapView(props: MapViewProps) {
       mapRef.current = null;
     };
   }, []);
+
+  // label visibility toggle
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) applyLabelVisibility(map, props.showLabels);
+  }, [props.showLabels]);
+
+  // live terrain exaggeration (re-scales the mesh without refetching tiles)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      if (map.getSource('terrain-dem')) {
+        map.setTerrain({ source: 'terrain-dem', exaggeration: props.exaggeration });
+      }
+    } catch {
+      // style not ready; style.load applies it
+    }
+  }, [props.exaggeration]);
 
   // no zoom on double-click while editing (matches the 2D editor's dblclick suppression)
   useEffect(() => {

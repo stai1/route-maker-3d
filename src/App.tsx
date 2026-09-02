@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { Map as MLMap } from 'maplibre-gl';
 import type { Feature, FeatureCollection } from 'geojson';
 import MapView from './map/MapView';
+import LayerMenu from './components/LayerMenu';
 import ProfilePanel from './components/ProfilePanel';
 import { ElevationSource } from './elevation/ElevationSource';
 import { newRoute, type LonLat, type Route } from './model';
@@ -36,6 +37,8 @@ export default function App() {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [basemap, setBasemap] = useState<BasemapKind>('dark');
+  const [showLabels, setShowLabels] = useState(true);
+  const [exaggeration, setExaggeration] = useState(1);
   const [map, setMap] = useState<MLMap | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const elevationSource = useMemo(() => new ElevationSource(), []);
@@ -358,6 +361,8 @@ export default function App() {
       <div className="map-wrap">
         <MapView
           basemap={basemap}
+          showLabels={showLabels}
+          exaggeration={exaggeration}
           routesFC={routesFC}
           handlesFC={handlesFC}
           selectedId={selectedId}
@@ -370,17 +375,14 @@ export default function App() {
           onDeleteActive={deleteActive}
         />
 
-        <div className="layer-control">
-          {(['dark', 'light', 'satellite'] as const).map((k) => (
-            <button
-              key={k}
-              className={basemap === k ? 'active' : ''}
-              onClick={() => setBasemap(k)}
-            >
-              {k[0].toUpperCase() + k.slice(1)}
-            </button>
-          ))}
-        </div>
+        <LayerMenu
+          basemap={basemap}
+          onBasemap={setBasemap}
+          showLabels={showLabels}
+          onShowLabels={setShowLabels}
+          exaggeration={exaggeration}
+          onExaggeration={setExaggeration}
+        />
 
         {profileOpen && selectedRoute && !editing && map && (
           <ProfilePanel
