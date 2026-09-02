@@ -8,6 +8,8 @@ interface Props {
   onShowLabels: (v: boolean) => void;
   hillshade: number;
   onHillshade: (v: number) => void;
+  buildings: boolean;
+  onBuildings: (v: boolean) => void;
   exaggeration: number;
   onExaggeration: (v: number) => void;
 }
@@ -30,6 +32,8 @@ export default function LayerMenu({
   onShowLabels,
   hillshade,
   onHillshade,
+  buildings,
+  onBuildings,
   exaggeration,
   onExaggeration,
 }: Props) {
@@ -73,6 +77,14 @@ export default function LayerMenu({
               onChange={(e) => onShowLabels(e.target.checked)}
             />
             Labels
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={buildings}
+              onChange={(e) => onBuildings(e.target.checked)}
+            />
+            3D buildings
           </label>
           <hr />
           <label

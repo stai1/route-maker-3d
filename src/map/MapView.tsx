@@ -13,6 +13,8 @@ export interface MapViewProps {
   showLabels: boolean;
   /** Relief-shading intensity 0..1 (0 hides the layer); drives hillshade-exaggeration. */
   hillshade: number;
+  /** 3D building extrusions (from the vector tiles' building heights). */
+  buildings: boolean;
   /** Terrain exaggeration multiplier (display-only; elevation queries stay true). */
   exaggeration: number;
   routesFC: FeatureCollection;
@@ -229,6 +231,44 @@ export default function MapView(props: MapViewProps) {
         map.setPaintProperty('hillshade', 'hillshade-exaggeration', p.hillshade);
       }
 
+      // 3D buildings: the OpenMapTiles vector source we already load carries
+      // per-building heights (render_height / render_min_height); the stock
+      // styles just render them flat. One fill-extrusion layer makes them 3D.
+      if (map.getSource('openmaptiles')) {
+        const buildingColor = p.basemap === 'light' ? '#d9d3c9' : '#2f3644';
+        if (!map.getLayer('buildings-3d')) {
+          map.addLayer(
+            {
+              id: 'buildings-3d',
+              type: 'fill-extrusion',
+              source: 'openmaptiles',
+              'source-layer': 'building',
+              minzoom: 14, // z13 exists but only as merged footprints — not useful; show full-detail buildings only
+              layout: { visibility: p.buildings ? 'visible' : 'none' },
+              paint: {
+                'fill-extrusion-color': buildingColor,
+                'fill-extrusion-height': ['get', 'render_height'],
+                'fill-extrusion-base': ['get', 'render_min_height'],
+                // Known limitation, left unfixed: extrusions occlude draped route
+                // lines passing behind/under them (draped layers live in the
+                // ground texture; extrusions are depth-tested 3D geometry).
+                // Opacity does not let the draped lines show through either.
+                'fill-extrusion-opacity': 0.85,
+              },
+            } as any,
+            firstSymbolId,
+          );
+        } else {
+          if (firstSymbolId) map.moveLayer('buildings-3d', firstSymbolId);
+          map.setLayoutProperty(
+            'buildings-3d',
+            'visibility',
+            p.buildings ? 'visible' : 'none',
+          );
+          map.setPaintProperty('buildings-3d', 'fill-extrusion-color', buildingColor);
+        }
+      }
+
       if (!map.getSource('routes')) {
         map.addSource('routes', { type: 'geojson', data: p.routesFC as any });
       }
@@ -417,6 +457,23 @@ export default function MapView(props: MapViewProps) {
     }
   }, [props.hillshade]);
 
+  // buildings toggle
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      if (map.getLayer('buildings-3d')) {
+        map.setLayoutProperty(
+          'buildings-3d',
+          'visibility',
+          props.buildings ? 'visible' : 'none',
+        );
+      }
+    } catch {
+      // style not ready; style.load applies it
+    }
+  }, [props.buildings]);
+
   // live terrain exaggeration (re-scales the mesh without refetching tiles)
   useEffect(() => {
     const map = mapRef.current;
@@ -459,6 +516,7 @@ export default function MapView(props: MapViewProps) {
             }
             const keepIds = [
               'hillshade',
+              'buildings-3d',
               'route-selected-casing',
               'routes-line',
               'route-handles',

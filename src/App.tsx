@@ -39,6 +39,7 @@ export default function App() {
   const [basemap, setBasemap] = useState<BasemapKind>('dark');
   const [showLabels, setShowLabels] = useState(true);
   const [hillshade, setHillshade] = useState(0.2);
+  const [buildings, setBuildings] = useState(false);
   const [exaggeration, setExaggeration] = useState(1);
   const [map, setMap] = useState<MLMap | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -364,6 +365,7 @@ export default function App() {
           basemap={basemap}
           showLabels={showLabels}
           hillshade={hillshade}
+          buildings={buildings}
           exaggeration={exaggeration}
           routesFC={routesFC}
           handlesFC={handlesFC}
@@ -384,6 +386,8 @@ export default function App() {
           onShowLabels={setShowLabels}
           hillshade={hillshade}
           onHillshade={setHillshade}
+          buildings={buildings}
+          onBuildings={setBuildings}
           exaggeration={exaggeration}
           onExaggeration={setExaggeration}
         />
