@@ -130,17 +130,50 @@ export default function ProfilePanel({
 
   // header stats reflect the selection when one is active
   const headerStats = useMemo(() => {
-    if (!selection || !stats) return stats;
-    const eles = samples
-      .filter((s) => s.ele !== null && s.d >= selection.start && s.d <= selection.end)
-      .map((s) => s.ele!);
-    if (!eles.length) return stats;
+    if (!stats) return null;
+    const inRange = selection
+      ? samples.filter((s) => s.d >= selection.start && s.d <= selection.end)
+      : samples;
+    const pts = inRange.filter((s) => s.ele !== null);
+    if (pts.length < 2) return null;
+    let gain = 0;
+    let loss = 0;
+    let maxGrade = -Infinity;
+    let minGrade = Infinity;
+    let minEle = Infinity;
+    let maxEle = -Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const ele = pts[i].ele!;
+      if (ele < minEle) minEle = ele;
+      if (ele > maxEle) maxEle = ele;
+      if (i > 0) {
+        const dEle = ele - pts[i - 1].ele!;
+        const dDist = pts[i].d - pts[i - 1].d;
+        if (dEle > 0) gain += dEle;
+        else loss -= dEle;
+        if (dDist > 0) {
+          const grade = (dEle / dDist) * 100;
+          if (grade > maxGrade) maxGrade = grade;
+          if (grade < minGrade) minGrade = grade;
+        }
+      }
+    }
+    const run = pts[pts.length - 1].d - pts[0].d;
+    const avgGrade =
+      run > 0 ? ((pts[pts.length - 1].ele! - pts[0].ele!) / run) * 100 : 0;
     return {
-      min: Math.min(...eles),
-      max: Math.max(...eles),
-      total: selection.end - selection.start,
+      total: selection ? selection.end - selection.start : stats.total,
+      min: minEle,
+      max: maxEle,
+      gain,
+      loss,
+      maxGrade,
+      minGrade,
+      avgGrade,
     };
   }, [samples, selection, stats]);
+
+  const grade = (v: number) => `${v.toFixed(1)}%`;
 
   // --- shift+drag range selection ---
   const dragRef = useRef<{ startFrac: number; moved: boolean } | null>(null);
@@ -226,21 +259,53 @@ export default function ProfilePanel({
           Elevation profile — {route.name}
           {headerStats && (
             <span className={`profile-stats${selection ? ' selection-active' : ''}`}>
-              <span className="stat-cell">
-                <span className="stat stat-dist">
-                  {formatDistance(headerStats.total, unitSystem)}
+              <span className="stat-group">
+                <span className="stat-cell">
+                  <span className="stat stat-dist">
+                    {formatDistance(headerStats.total, unitSystem)}
+                  </span>
                 </span>
               </span>
-              <span className="stat-cell">
-                min{' '}
-                <span className="stat stat-ele">
-                  {formatAltitude(headerStats.min, unitSystem)}
+              <span className="stat-group">
+                <span className="stat-cell">
+                  min{' '}
+                  <span className="stat stat-ele">
+                    {formatAltitude(headerStats.min, unitSystem)}
+                  </span>
+                </span>
+                <span className="stat-cell">
+                  max{' '}
+                  <span className="stat stat-ele">
+                    {formatAltitude(headerStats.max, unitSystem)}
+                  </span>
                 </span>
               </span>
-              <span className="stat-cell">
-                max{' '}
-                <span className="stat stat-ele">
-                  {formatAltitude(headerStats.max, unitSystem)}
+              <span className="stat-group">
+                <span className="stat-cell">
+                  gain{' '}
+                  <span className="stat stat-ele">
+                    {formatAltitude(headerStats.gain, unitSystem)}
+                  </span>
+                </span>
+                <span className="stat-cell">
+                  loss{' '}
+                  <span className="stat stat-ele">
+                    {formatAltitude(headerStats.loss, unitSystem)}
+                  </span>
+                </span>
+              </span>
+              <span className="stat-group">
+                <span className="stat-cell">
+                  max{' '}
+                  <span className="stat stat-grade">{grade(headerStats.maxGrade)}</span>
+                </span>
+                <span className="stat-cell">
+                  min{' '}
+                  <span className="stat stat-grade">{grade(headerStats.minGrade)}</span>
+                </span>
+                <span className="stat-cell">
+                  avg{' '}
+                  <span className="stat stat-grade">{grade(headerStats.avgGrade)}</span>
                 </span>
               </span>
             </span>

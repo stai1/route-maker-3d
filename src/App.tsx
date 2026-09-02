@@ -233,6 +233,8 @@ export default function App() {
 
   const select = (id: string | null) => {
     if (editing) return; // list & selection disabled while editing
+    // map clicks never close an open profile: ignore empty-map deselects
+    if (id === null && profileOpen) return;
     setSelectedId(id);
     if (id === null) setProfileOpen(false);
   };
