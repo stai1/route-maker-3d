@@ -17,6 +17,7 @@ interface Props {
 const BASEMAPS: Array<{ kind: BasemapKind; label: string }> = [
   { kind: 'dark', label: 'Dark' },
   { kind: 'light', label: 'Light' },
+  { kind: 'standard', label: 'Standard' }, // OSM Bright
   { kind: 'satellite', label: 'Satellite' },
 ];
 

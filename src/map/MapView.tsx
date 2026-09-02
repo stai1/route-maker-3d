@@ -235,7 +235,8 @@ export default function MapView(props: MapViewProps) {
       // per-building heights (render_height / render_min_height); the stock
       // styles just render them flat. One fill-extrusion layer makes them 3D.
       if (map.getSource('openmaptiles')) {
-        const buildingColor = p.basemap === 'light' ? '#d9d3c9' : '#2f3644';
+        const buildingColor =
+          p.basemap === 'light' || p.basemap === 'standard' ? '#d9d3c9' : '#2f3644';
         if (!map.getLayer('buildings-3d')) {
           map.addLayer(
             {
@@ -524,10 +525,25 @@ export default function MapView(props: MapViewProps) {
             const keepLayers = (previous.layers ?? []).filter((l) =>
               keepIds.includes(l.id),
             );
+            // Insert overlays at the same position applyContent uses (under the
+            // first symbol layer). If transformStyle merely appended them, the
+            // style diff would see a reorder on every switch and express it as
+            // removeLayer+addLayer — and re-adding a layer marks its source for
+            // tile reload (spurious DEM refetches on basemap switches).
+            const overlays = keepLayers.filter(
+              (l) => l.id === 'hillshade' || l.id === 'buildings-3d',
+            );
+            const routeLayers = keepLayers.filter(
+              (l) => l.id !== 'hillshade' && l.id !== 'buildings-3d',
+            );
+            const layers = [...next.layers];
+            const symbolIdx = layers.findIndex((l) => l.type === 'symbol');
+            layers.splice(symbolIdx < 0 ? layers.length : symbolIdx, 0, ...overlays);
+            layers.push(...routeLayers);
             return {
               ...next,
               sources: { ...next.sources, ...keepSources },
-              layers: [...next.layers, ...keepLayers],
+              layers,
               terrain: previous.terrain,
               projection: previous.projection ?? (next as any).projection,
               sky: (previous as any).sky ?? (next as any).sky,

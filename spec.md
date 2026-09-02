@@ -54,7 +54,7 @@ The elevation profile is a **visualization only** — it is not persisted with t
 
 The basemap is a **vector-tile style**, so labels are rendered by MapLibre as upright, screen-space text that stays crisp on tilted 3D terrain (no draped-raster warping). Basemaps are token-free. An on-map **layer control** lets the user choose between three layers; **Dark is the default**:
 
-* **Dark** (default) and **Light** — free vector styles, e.g. OpenFreeMap (Dark / Positron) or self-hosted OSM vector tiles (Planetiler → PMTiles). Switching styles is a `map.setStyle(...)` call.
+* **Dark** (default), **Light**, and **Standard** — free vector styles from OpenFreeMap (Dark / Positron / Bright respectively; open-licensed community styles, keyless). "Standard" is OSM Bright, the general-purpose full-color style. Switching styles is a `map.setStyle(...)` call.
 * **Satellite** — a raster imagery layer (e.g. ESRI World Imagery via XYZ, attribution required) shown under the vector label layers, so place labels remain upright and legible over imagery.
 
 Because labels come from the vector style itself, there is no separate label source to design or maintain. Minor known behaviors to watch: labels behind a hill can "show through" (mitigated with MapLibre's `text-occlusion-opacity`), and slight label pop-in as DEM tiles load.
@@ -132,7 +132,7 @@ A **center-on-my-location button** (MapLibre's standard `GeolocateControl`) rece
 
 Map controls are arranged as a **single column at the top right** (layers control, then geolocate), keeping the bottom of the map clear for the elevation-profile panel.
 
-A standard web-map **layers control** (collapsed button with a layers icon; expands on hover/click) switches the basemap between **Dark** (default), **Light**, and **Satellite** as radio options (see *Tech stack → Base map & labels*), and includes **Labels** (on by default) and **3D buildings** (off by default, since buildings occlude drawn routes — see *Base map & labels*) overlay checkboxes, a **Hillshade intensity slider** (0–100%, default 20%, driving the DEM-derived relief layer's `hillshade-exaggeration`; 0% hides the layer; right-click resets to 20%), and a **terrain exaggeration slider** (0×–3×, default 1×; right-click resets to 1×). Exaggeration is display-only — elevation profiles and queries stay true to the data.
+A standard web-map **layers control** (collapsed button with a layers icon; expands on hover/click) switches the basemap between **Dark** (default), **Light**, **Standard**, and **Satellite** as radio options (see *Tech stack → Base map & labels*), and includes **Labels** (on by default) and **3D buildings** (off by default, since buildings occlude drawn routes — see *Base map & labels*) overlay checkboxes, a **Hillshade intensity slider** (0–100%, default 20%, driving the DEM-derived relief layer's `hillshade-exaggeration`; 0% hides the layer; right-click resets to 20%), and a **terrain exaggeration slider** (0×–3×, default 1×; right-click resets to 1×). Exaggeration is display-only — elevation profiles and queries stay true to the data.
 
 ## Misc details
 * The route line should follow the contour of the Earth mesh. The line should appear at a constant width on the screen (i.e. unaffected by angle of viewing or distance from the camera). The handles at each point of the route (as in the 2D route maker) should also appear as circles on the screen. (Realized per *Tech stack → Route rendering*.)

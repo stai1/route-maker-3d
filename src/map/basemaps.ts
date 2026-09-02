@@ -7,10 +7,11 @@ import type { StyleSpecification } from 'maplibre-gl';
  * labels remain upright and legible over imagery.
  */
 
-export type BasemapKind = 'dark' | 'light' | 'satellite';
+export type BasemapKind = 'dark' | 'light' | 'standard' | 'satellite';
 
 const OFM_DARK = 'https://tiles.openfreemap.org/styles/dark';
 const OFM_LIGHT = 'https://tiles.openfreemap.org/styles/positron';
+const OFM_BRIGHT = 'https://tiles.openfreemap.org/styles/bright';
 const ESRI_IMAGERY =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
@@ -23,6 +24,7 @@ async function fetchStyle(url: string): Promise<StyleSpecification> {
 export async function getBasemapStyle(kind: BasemapKind): Promise<StyleSpecification> {
   if (kind === 'dark') return fetchStyle(OFM_DARK);
   if (kind === 'light') return fetchStyle(OFM_LIGHT);
+  if (kind === 'standard') return fetchStyle(OFM_BRIGHT); // OSM Bright: general-purpose full-color style
 
   // satellite: raster imagery base + the dark style's symbol (label) layers on top
   const base = await fetchStyle(OFM_DARK);
