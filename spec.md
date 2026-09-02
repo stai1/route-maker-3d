@@ -85,6 +85,8 @@ File formats are a **serialization concern of the app, independent of the render
 * Coordinates are written as 2D lon/lat (no Z), consistent with the model; draping on display is left to the renderer.
 * **KMZ** is a ZIP wrapping `doc.kml`; support reading both, export plain KML by default and KMZ when bundling is needed.
 
+**TCX and FIT are import-only geometry sources** (matching `../activity-slicer`'s parsers): TCX via DOMParser (Trackpoint positions; both Activities and Courses import, one route each), FIT via the `fit-file-parser` package (records with positions, degree/meter units). Only GPS coordinates are taken — altitude, heart rate, time, etc. are ignored — and imported routes get the default style.
+
 **GPX is a geometry interchange** for fitness/GPS tools. Exported GPX carries **geometry only** — route vertices as 2D lon/lat, consistent with the internal model. Elevation is not exported (`<ele>` is omitted): elevation in this app is a profile-only visualization derived on demand, not stored data (see *Elevation data*), so consumers re-derive it if needed. Styling (color/width) has no standard GPX representation and is likewise not exported. GPX **import** brings in geometry and assigns a default style. (Carries over the reference project's GPX import/export.)
 
 ### Camera controls
@@ -120,7 +122,7 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
   * **Export KML** — exports that route as a KML file.
   * **Export GPX** — exports that route as GPX (geometry only).
   * **Delete** — removes the route, after a confirmation prompt.
-* Buttons alongside the list: **New Route** (enters create/edit mode on a fresh route — the tool is not always active) and **Import** (KML/KMZ/GPX; multiple files can be selected at once — failures are reported per file without blocking the rest).
+* Buttons alongside the list: **New Route** (enters create/edit mode on a fresh route — the tool is not always active) and **Import** (KML/KMZ/GPX, plus TCX/FIT as import-only; multiple files can be selected at once — failures are reported per file without blocking the rest).
 
 ### Create/edit mode
 

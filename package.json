@@ -14,6 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "fflate": "^0.8.2",
+    "fit-file-parser": "^1.21.0",
     "maplibre-gl": "^5.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

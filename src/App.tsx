@@ -11,6 +11,8 @@ import { newRoute, type LonLat, type Route } from './model';
 import { cumulativeDistances, densify, routeLength, slicePolyline } from './geo';
 import { kmlToRoutes, kmzToRoutes, routesToKml } from './io/kml';
 import { gpxToRoutes, routeToGpx } from './io/gpx';
+import { tcxToRoutes } from './io/tcx';
+import { fitToRoutes } from './io/fit';
 import type { BasemapKind } from './map/basemaps';
 
 interface EditingState {
@@ -267,8 +269,17 @@ export default function App() {
           imported = kmlToRoutes(await file.text());
         } else if (name.endsWith('.gpx')) {
           imported = gpxToRoutes(await file.text());
+        } else if (name.endsWith('.tcx')) {
+          imported = tcxToRoutes(await file.text());
+        } else if (name.endsWith('.fit')) {
+          imported = await fitToRoutes(
+            await file.arrayBuffer(),
+            file.name.replace(/\.fit$/i, ''),
+          );
         } else {
-          throw new Error('unsupported file type (use .kml, .kmz, or .gpx)');
+          throw new Error(
+            'unsupported file type (use .kml, .kmz, .gpx, .tcx, or .fit)',
+          );
         }
         withIds.push(...imported.map((r) => ({ ...r, id: crypto.randomUUID() })));
       } catch (err) {
@@ -358,7 +369,7 @@ export default function App() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".kml,.kmz,.gpx"
+            accept=".kml,.kmz,.gpx,.tcx,.fit"
             multiple
             hidden
             onChange={(e) => {
