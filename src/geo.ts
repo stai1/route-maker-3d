@@ -74,6 +74,10 @@ export function boundsOf(points: LonLat[]): [[number, number], [number, number]]
  * Insert interpolated vertices so no display segment exceeds maxSegMeters —
  * long straight segments would otherwise cut through hills when draped
  * (see spec: Route rendering).
+ *
+ * maxPoints budgets only the *inserted* interpolation: original vertices are
+ * always kept (dense imports like FIT activities can exceed the budget and
+ * simply get no extra densification — never truncation).
  */
 export function densify(points: LonLat[], maxSegMeters = 300, maxPoints = 5000): LonLat[] {
   if (points.length < 2) return points.slice();
@@ -82,14 +86,11 @@ export function densify(points: LonLat[], maxSegMeters = 300, maxPoints = 5000):
     const a = points[i - 1];
     const b = points[i];
     const d = haversine(a, b);
-    const n = Math.min(Math.ceil(d / maxSegMeters), Math.max(1, Math.floor((maxPoints - out.length) / (points.length - i))));
+    const budget = Math.floor((maxPoints - out.length) / (points.length - i));
+    const n = Math.min(Math.ceil(d / maxSegMeters), Math.max(1, budget));
     for (let k = 1; k <= n; k++) {
       const t = k / n;
       out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
-    }
-    if (out.length >= maxPoints) {
-      out.push(points[points.length - 1]);
-      break;
     }
   }
   return out;
