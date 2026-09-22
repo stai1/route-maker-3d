@@ -184,6 +184,25 @@ export default function App() {
     });
   };
 
+  const duplicate = (route: Route) => {
+    const newRoute = structuredClone(route);
+    newRoute.id = crypto.randomUUID();
+    // Finder-style unique name: strip any " (n)" suffix to get the base,
+    // then use the smallest number not taken by an existing route name
+    const base = route.name.replace(/ \([0-9]+\)$/, '');
+    const names = new Set(routes.map((r) => r.name));
+    let n = 1;
+    while (names.has(`${base} (${n})`)) n++;
+    newRoute.name = `${base} (${n})`;
+    setRoutes((rs) => {
+      const index = rs.findIndex((r) => r.id === route.id);
+      const result = [...rs];
+      result.splice(index + 1, 0, newRoute);
+      return result;
+    });
+    setSelectedId(newRoute.id);
+  };
+
   const updateDraft = (patch: Partial<Route>) =>
     setEditing((e) => (e ? { ...e, draft: { ...e.draft, ...patch } } : e));
 
@@ -559,6 +578,7 @@ export default function App() {
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 {item('Edit', () => startEdit(route))}
+                {item('Duplicate', () => duplicate(route))}
                 {item('Show Elevation Profile', () => setProfileOpen(true))}
                 {item('Export KML', () => exportKml(route))}
                 {item('Export GPX', () => exportGpx(route))}
