@@ -99,6 +99,8 @@ We use **MapLibre's built-in camera handlers**, which are Google-Earth-like by d
 
 `maxPitch` is set to **85°** — close to but just shy of horizontal (pitch is measured from straight-down = 0° to the horizon = 90°). Keyboard camera panning is out of scope (MapLibre's keyboard handler can be disabled).
 
+The camera position and orientation are kept in the URL **hash fragment** (`#lng=…&lat=…&z=…&b=…&p=…`, rewritten after each move) so a refresh restores the view. The hash never reaches the server.
+
 ## Reference project
 
 There is already a basic 2D route maker at `../route-maker`. Features to bring in:
@@ -122,6 +124,7 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
     * **Range selection:** **dragging** on the graph selects a distance range. The range is denoted by vertical boundary lines with a mild highlight between them (blended with `mix-blend-mode: screen`, so it brightens the graph beneath). The graph line is bolded inside the selection, and the **corresponding section of the route is bolded on the map**. Starting a new selection clears the old one, so a *click* (no drag) clears the selection. The panel's stats — **distance; min/max elevation, gain, loss; max/min/avg grade** — are shown as **bordered cells with collapsed borders**, clustered into four groups (distance | min/max elevation | gain/loss | grade) that wrap to further lines as units when the panel is narrow, keeping related stats together. The border is muted gray when the stats describe the whole route and switches to the graph color when they describe an active selection. Gain/loss sum positive/negative deltas between consecutive samples; max/min grade are per-sample-segment; avg grade is net elevation change over distance; the graph's y-scaling always stays fit to the whole route. Map clicks never close the panel: clicking empty ground while it is open keeps the current route selected, and clicking a different route re-targets the panel to that route. It closes via its ✕ button, on entering create/edit mode, or when its route is deleted.
   * **Export KML** — exports that route as a KML file.
   * **Export GPX** — exports that route as GPX (geometry only).
+  * **Share** — opens the **share panel** for the route (see *Sharing*).
   * **Delete** — removes the route, after a confirmation prompt.
 * Buttons alongside the list: **New Route** (enters create/edit mode on a fresh route — the tool is not always active) and **Import** (KML/KMZ/GPX, plus TCX/FIT as import-only; multiple files can be selected at once — failures are reported per file without blocking the rest).
 
@@ -141,13 +144,26 @@ The app supports multiple routes at once. The core UI is a **route list** plus a
   * **Cancel** — discards changes made in this session and exits create/edit mode.
 * On exit, the route list is re-enabled.
 
+### Sharing
+
+A route can be shared as a link that carries it in the URL **hash fragment** (never sent to the server, so long routes aren't limited by request-URL size). Routes are not simplified for sharing.
+
+* **Format:** `#name=…&color=…&opacity=…&width=…&basemap=…&labels=…&buildings=…&hillshade=…&terrain=…&n=…&route=…`. Only `route` is required. Geometry is a Google **Encoded Polyline** (1e5 precision, lat before lng); `n` is its point count. Color is hex without `#`; booleans are `1`/`0`; numbers are rounded to 2 decimals. The polyline goes last and `n` just before it, so a link cut off by a messenger loses points rather than parameters, and the loss is detectable.
+* **Share panel:** the **Share** context-menu item selects the route and shows a share panel in the left panel, in place of the route details. It contains:
+  * **Name** — prefilled with the route's name. It only affects the link (the route isn't renamed); left empty, the receiver uses the default naming scheme.
+  * **Include style** checkbox (off by default) — enables color/opacity and width inputs, initialized to the route's style; when off, the receiver uses the default style.
+  * **Include map layers** checkbox (off by default) — includes the layers control's basemap, labels, 3D buildings, hillshade, and terrain exaggeration.
+  * The **link** in a read-only (selectable) input, rebuilt live as the panel's fields or the layers control change, with its length in characters and a **Copy Link** button.
+  * The panel closes via **Close**, on entering create/edit mode, on selecting another route, or when its route is deleted. Clicking empty map doesn't close it.
+* **Opening a link:** the route is added to the list (with a default style and name for any missing or invalid parameter), the included map layers are applied (from the first render, so the default basemap doesn't flash), and the route is selected with its elevation profile open, which fits the camera to it. Any camera params in the link are ignored. Share and camera params are then stripped from the URL so a refresh doesn't add the route again. A link pasted into an already-open tab (a hash change, no reload) is handled the same way. While a route is being created or edited, the shared route only joins the list. Invalid parameters are ignored one by one, numbers are clamped to their control's range, and only an invalid or under-2-point route rejects the link (with an alert). A **cut-off link** shows the route decoded up to its last complete point, with an alert giving the received and expected point counts.
+
 ### Geolocate control
 
 A **center-on-my-location button** (MapLibre's standard `GeolocateControl`) recenters the camera on the user's position (zoom ≈ 16, matching the 2D route maker's ⦿ control) and shows a location dot with an accuracy circle, tracking the position while active. Requires a secure context (localhost / HTTPS) and the user granting the browser's geolocation permission.
 
 ### Settings
 
-A **settings button** (gear icon) sits at the top right of the left panel, on the same line as the app title. It opens a **modal dialog** with a single setting: the **unit system**, using the same systems as `../activity-slicer` — `km/meters` (default), `miles/feet`, `meters/meters` (distance unit / elevation unit). The setting applies to the route-editing distance readout and the elevation-profile stats, and persists in `localStorage`. Internal values remain meters throughout; units are a display concern only.
+A **settings button** (gear icon) sits at the top right of the left panel, on the same line as the app title. It opens a **modal dialog** with two settings: **distance units** (kilometers, miles, meters) and **elevation units** (meters, feet). They apply to the route-editing distance readout and the elevation-profile stats and axes. Each defaults from the browser locale's region (`navigator.language`, maximized when it has no region, e.g. `en` → US): miles in the US, Liberia, Myanmar, and the UK, otherwise kilometers; feet in the US, Liberia, and Myanmar, otherwise meters. Defaults are not stored: a setting is written to `localStorage` only once the user changes it, so untouched settings keep following the locale. Internal values remain meters throughout; units are a display concern only.
 
 ### Base map layer control
 

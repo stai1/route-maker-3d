@@ -4,7 +4,14 @@ import type { LonLat, Route } from '../model';
 import { boundsOf, cumulativeDistances, pointAlong, routeLength } from '../geo';
 import { ElevationSource, MAX_ELEVATION_ZOOM } from '../elevation/ElevationSource';
 import { makeProfileSamples, type ProfileSample } from '../elevation/profile';
-import { MILE_METERS, formatAltitude, formatDistance, type UnitSystem } from '../units';
+import {
+  DISTANCE_UNIT_METERS,
+  ELEVATION_UNIT_METERS,
+  formatAltitude,
+  formatDistance,
+  type DistanceUnit,
+  type ElevationUnit,
+} from '../units';
 
 /** "Nice" tick values (1/2/5 × 10^n steps) covering [min, max]. */
 function niceTicks(min: number, max: number, targetCount: number): number[] {
@@ -68,7 +75,8 @@ interface Props {
   route: Route;
   map: MLMap;
   elevationSource: ElevationSource;
-  unitSystem: UnitSystem;
+  distanceUnit: DistanceUnit;
+  elevationUnit: ElevationUnit;
   selection: ProfileSelection | null;
   onSelectionChange: (sel: ProfileSelection | null) => void;
   /** Route position under the graph cursor, for the map marker. */
@@ -92,7 +100,8 @@ export default function ProfilePanel({
   route,
   map,
   elevationSource,
-  unitSystem,
+  distanceUnit,
+  elevationUnit,
   selection,
   onSelectionChange,
   onHover,
@@ -298,7 +307,7 @@ export default function ProfilePanel({
 
   const grade = (v: number | null) => (v !== null ? `${v.toFixed(1)}%` : '–');
   const alt = (v: number | null) =>
-    v !== null ? formatAltitude(v, unitSystem) : '–';
+    v !== null ? formatAltitude(v, elevationUnit) : '–';
 
   /** Screen fraction (0..1 across the plot) → meters along the route. */
   const screenFracToD = (f: number) =>
@@ -516,12 +525,10 @@ export default function ProfilePanel({
   // the same meters→pixel mapping as the drawn line so gridlines align with it
   const axes = useMemo(() => {
     if (!stats || !yRange) return null;
-    const distScale =
-      unitSystem === 'miles/feet' ? 1 / MILE_METERS : unitSystem === 'meters/meters' ? 1 : 1 / 1000;
-    const distUnit =
-      unitSystem === 'miles/feet' ? 'mi' : unitSystem === 'meters/meters' ? 'm' : 'km';
-    const eleScale = unitSystem === 'miles/feet' ? 1 / 0.3048 : 1;
-    const eleUnit = unitSystem === 'miles/feet' ? 'ft' : 'm';
+    const distScale = 1 / DISTANCE_UNIT_METERS[distanceUnit];
+    const distUnit = distanceUnit;
+    const eleScale = 1 / ELEVATION_UNIT_METERS[elevationUnit];
+    const eleUnit = elevationUnit;
 
     // one x tick per ~50px of plot width, over the visible distance window
     const xTickCount = Math.max(2, Math.floor(plotWidth / 50));
@@ -552,7 +559,7 @@ export default function ProfilePanel({
       })
       .filter((t) => t.frac >= 0.06 && t.frac <= 0.98);
     return { xTicks, yTicks };
-  }, [stats, yRange, unitSystem, plotWidth, view]);
+  }, [stats, yRange, distanceUnit, elevationUnit, plotWidth, view]);
 
   return (
     <div className="profile-panel" ref={panelRef}>
@@ -576,7 +583,7 @@ export default function ProfilePanel({
               <span className="stat-group">
                 <span className="stat-cell">
                   <span className="stat stat-dist">
-                    {formatDistance(headerStats.total, unitSystem)}
+                    {formatDistance(headerStats.total, distanceUnit)}
                   </span>
                 </span>
               </span>
@@ -721,10 +728,10 @@ export default function ProfilePanel({
                       : 'translateX(8px)',
                 }}
               >
-                <div>{formatDistance(hoverInfo.d, unitSystem)}</div>
+                <div>{formatDistance(hoverInfo.d, distanceUnit)}</div>
                 <div>
                   {hoverInfo.ele !== null
-                    ? formatAltitude(hoverInfo.ele, unitSystem)
+                    ? formatAltitude(hoverInfo.ele, elevationUnit)
                     : '–'}
                 </div>
                 <div>{hoverInfo.grade !== null ? grade(hoverInfo.grade) : '–'}</div>

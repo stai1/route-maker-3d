@@ -3,62 +3,95 @@
  * Internal values are always meters; formatting is purely a display concern.
  */
 
-export type UnitSystem = 'km/meters' | 'miles/feet' | 'meters/meters';
+export type DistanceUnit = 'km' | 'mi' | 'm';
+export type ElevationUnit = 'm' | 'ft';
 
 export interface Settings {
-  unitSystem: UnitSystem;
+  distanceUnit: DistanceUnit;
+  elevationUnit: ElevationUnit;
 }
 
-export const DEFAULT_SETTINGS: Settings = {
-  unitSystem: 'km/meters',
+/** Meters per display unit (unit ids double as their labels). */
+export const DISTANCE_UNIT_METERS: Record<DistanceUnit, number> = {
+  km: 1000,
+  mi: 1609.344, // exact
+  m: 1,
+};
+export const ELEVATION_UNIT_METERS: Record<ElevationUnit, number> = {
+  m: 1,
+  ft: 0.3048, // exact
 };
 
-export const MILE_METERS = 1609.344; // exact
-const FOOT_METERS = 0.3048;
-const KM_METERS = 1000;
-
 /** Distance in meters -> display number + unit label. */
-export function formatDistance(meters: number, sys: UnitSystem): string {
+export function formatDistance(meters: number, unit: DistanceUnit): string {
   if (!Number.isFinite(meters)) return '';
-  if (sys === 'miles/feet') return `${(meters / MILE_METERS).toFixed(2)} mi`;
-  if (sys === 'meters/meters') return `${meters.toFixed(2)} m`;
-  return `${(meters / KM_METERS).toFixed(2)} km`;
+  return `${(meters / DISTANCE_UNIT_METERS[unit]).toFixed(2)} ${unit}`;
 }
 
 /** Altitude in meters -> feet or meters. */
-export function formatAltitude(meters: number, sys: UnitSystem): string {
+export function formatAltitude(meters: number, unit: ElevationUnit): string {
   if (!Number.isFinite(meters)) return '';
-  if (sys === 'miles/feet') return `${(meters / FOOT_METERS).toFixed(0)} ft`;
+  if (unit === 'ft') return `${(meters / ELEVATION_UNIT_METERS.ft).toFixed(0)} ft`;
   return `${meters.toFixed(1)} m`;
+}
+
+// --- locale defaults ---
+
+/** Regions measuring distance in miles (the UK on roads, too). */
+const MILE_REGIONS = new Set(['US', 'LR', 'MM', 'GB']);
+/** Regions measuring elevation in feet (the UK's maps use meters). */
+const FOOT_REGIONS = new Set(['US', 'LR', 'MM']);
+
+/**
+ * Units for the browser locale's region ("en-US" → US; a bare "en" maximizes
+ * to its likely region, US). Metric when the region is unknown.
+ */
+function localeSettings(): Settings {
+  let region: string | undefined;
+  try {
+    region = new Intl.Locale(navigator.language).maximize().region;
+  } catch {
+    // malformed or missing language tag
+  }
+  return {
+    distanceUnit: region && MILE_REGIONS.has(region) ? 'mi' : 'km',
+    elevationUnit: region && FOOT_REGIONS.has(region) ? 'ft' : 'm',
+  };
 }
 
 // --- persistence ---
 
 const KEY = 'route-maker-3d.settings';
 
-const isUnitSystem = (v: unknown): v is UnitSystem =>
-  v === 'km/meters' || v === 'miles/feet' || v === 'meters/meters';
+const isDistanceUnit = (v: unknown): v is DistanceUnit =>
+  v === 'km' || v === 'mi' || v === 'm';
+const isElevationUnit = (v: unknown): v is ElevationUnit => v === 'm' || v === 'ft';
 
-/** Load settings from localStorage, falling back to defaults for missing/invalid. */
-export function loadSettings(): Settings {
+/** The settings the user has chosen; invalid or unknown fields are dropped. */
+function loadChosen(): Partial<Settings> {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw);
-    return {
-      unitSystem: isUnitSystem(parsed.unitSystem)
-        ? parsed.unitSystem
-        : DEFAULT_SETTINGS.unitSystem,
-    };
+    const parsed = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+    const chosen: Partial<Settings> = {};
+    if (isDistanceUnit(parsed.distanceUnit)) chosen.distanceUnit = parsed.distanceUnit;
+    if (isElevationUnit(parsed.elevationUnit)) chosen.elevationUnit = parsed.elevationUnit;
+    return chosen;
   } catch {
-    return DEFAULT_SETTINGS;
+    return {};
   }
 }
 
-/** Persist settings to localStorage (best-effort). */
-export function saveSettings(s: Settings): void {
+/** The user's chosen settings, with locale-derived values for the rest. */
+export function loadSettings(): Settings {
+  return { ...localeSettings(), ...loadChosen() };
+}
+
+/**
+ * Persist settings the user changed (best-effort). Only chosen values are
+ * stored: untouched settings keep following the locale.
+ */
+export function saveSettings(patch: Partial<Settings>): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    localStorage.setItem(KEY, JSON.stringify({ ...loadChosen(), ...patch }));
   } catch {
     // ignore
   }

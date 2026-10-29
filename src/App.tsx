@@ -5,6 +5,7 @@ import MapView from './map/MapView';
 import LayerMenu from './components/LayerMenu';
 import ProfilePanel from './components/ProfilePanel';
 import SettingsModal from './components/SettingsModal';
+import StyleFields from './components/StyleFields';
 import { formatDistance, loadSettings, saveSettings, type Settings } from './units';
 import { ElevationSource } from './elevation/ElevationSource';
 import { newRoute, type LonLat, type Route } from './model';
@@ -13,6 +14,12 @@ import { kmlToRoutes, kmzToRoutes, routesToKml } from './io/kml';
 import { gpxToRoutes, routeToGpx } from './io/gpx';
 import { tcxToRoutes } from './io/tcx';
 import { fitToRoutes } from './io/fit';
+import {
+  buildShareUrl,
+  takeShareFromHash,
+  type SharedRoute,
+  type ShareStyle,
+} from './io/share';
 import type { BasemapKind } from './map/basemaps';
 
 interface EditingState {
@@ -24,6 +31,22 @@ interface EditingState {
    */
   activeIndex: number;
 }
+
+interface SharingState {
+  routeId: string;
+  /** Link-only: editing it doesn't rename the route. */
+  name: string;
+  includeStyle: boolean;
+  style: ShareStyle;
+  includeLayers: boolean;
+}
+
+/**
+ * Share link the page was opened with, taken before MapView reads its camera
+ * from the hash: a link's camera params never apply (the route fit wins).
+ */
+const initialShare = takeShareFromHash();
+const initialLayers = initialShare instanceof Error ? undefined : initialShare?.layers;
 
 function download(name: string, data: string | Uint8Array, mime: string) {
   const blob = new Blob([data as any], { type: mime });
@@ -39,12 +62,15 @@ export default function App() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditingState | null>(null);
+  const [sharing, setSharing] = useState<SharingState | null>(null);
+  const [copied, setCopied] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [basemap, setBasemap] = useState<BasemapKind>('dark');
-  const [showLabels, setShowLabels] = useState(true);
-  const [hillshade, setHillshade] = useState(0.2);
-  const [buildings, setBuildings] = useState(false);
-  const [exaggeration, setExaggeration] = useState(1);
+  // layers start as a share link sets them, so the default basemap never flashes
+  const [basemap, setBasemap] = useState<BasemapKind>(initialLayers?.basemap ?? 'dark');
+  const [showLabels, setShowLabels] = useState(initialLayers?.showLabels ?? true);
+  const [hillshade, setHillshade] = useState(initialLayers?.hillshade ?? 0.2);
+  const [buildings, setBuildings] = useState(initialLayers?.buildings ?? false);
+  const [exaggeration, setExaggeration] = useState(initialLayers?.exaggeration ?? 1);
   const [map, setMap] = useState<MLMap | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     routeId: string;
@@ -68,9 +94,10 @@ export default function App() {
     setProfileSelection(null);
   }, [selectedId, profileOpen]);
 
-  const updateSettings = (s: Settings) => {
-    setSettings(s);
-    saveSettings(s);
+  // only a setting the user touches is saved; the rest keep following the locale
+  const updateSettings = (patch: Partial<Settings>) => {
+    setSettings((s) => ({ ...s, ...patch }));
+    saveSettings(patch);
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const elevationSource = useMemo(() => new ElevationSource(), []);
@@ -166,6 +193,7 @@ export default function App() {
   // --- create/edit mode ---
 
   const startNew = () => {
+    setSharing(null);
     setProfileOpen(true); // live elevation profile during create/edit
     setEditing({
       draft: newRoute(`Route ${routes.length + 1}`),
@@ -175,6 +203,7 @@ export default function App() {
   };
 
   const startEdit = (route: Route) => {
+    setSharing(null);
     setProfileOpen(true); // live elevation profile during create/edit
     setSelectedId(route.id);
     setEditing({
@@ -267,8 +296,11 @@ export default function App() {
 
   const select = (id: string | null) => {
     if (editing) return; // list & selection disabled while editing
-    // map clicks never close an open profile: ignore empty-map deselects
-    if (id === null && profileOpen) return;
+    // map clicks never close an open profile or share panel: ignore
+    // empty-map deselects
+    if (id === null && (profileOpen || sharing)) return;
+    // the share panel belongs to its route
+    if (sharing && id !== sharing.routeId) setSharing(null);
     setSelectedId(id);
     if (id === null) setProfileOpen(false);
   };
@@ -329,11 +361,104 @@ export default function App() {
   const deleteRoute = (route: Route) => {
     if (!confirm(`Delete "${route.name}"?`)) return;
     setRoutes((rs) => rs.filter((r) => r.id !== route.id));
+    if (sharing?.routeId === route.id) setSharing(null);
     if (selectedId === route.id) {
       setSelectedId(null);
       setProfileOpen(false);
     }
   };
+
+  // --- sharing ---
+
+  const startShare = (route: Route) => {
+    setSelectedId(route.id);
+    setSharing({
+      routeId: route.id,
+      name: route.name,
+      includeStyle: false,
+      style: { color: route.color, opacity: route.opacity, width: route.width },
+      includeLayers: false,
+    });
+  };
+
+  const updateSharing = (patch: Partial<SharingState>) =>
+    setSharing((s) => (s ? { ...s, ...patch } : s));
+
+  const sharedRoute = sharing ? routes.find((r) => r.id === sharing.routeId) : undefined;
+  // rebuilt live as the panel's fields and the layers control change
+  const shareUrl = useMemo(
+    () =>
+      sharing && sharedRoute
+        ? buildShareUrl(
+            sharedRoute.points,
+            sharing.name.trim(),
+            sharing.includeStyle ? sharing.style : null,
+            sharing.includeLayers
+              ? { basemap, showLabels, buildings, hillshade, exaggeration }
+              : null,
+          )
+        : '',
+    [sharing, sharedRoute, basemap, showLabels, buildings, hillshade, exaggeration],
+  );
+
+  // "Copied" describes the current link only
+  useEffect(() => setCopied(false), [shareUrl]);
+
+  const copyShareUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+    } catch {
+      alert('Copy failed; select the link and copy it manually.');
+    }
+  };
+
+  /** Add a route from a share link; opening its profile fits the camera to it. */
+  const openShare = (share: SharedRoute | Error) => {
+    if (share instanceof Error) {
+      alert(`Couldn't open the shared route: ${share.message}`);
+      return;
+    }
+    const { layers } = share;
+    if (layers?.basemap !== undefined) setBasemap(layers.basemap);
+    if (layers?.showLabels !== undefined) setShowLabels(layers.showLabels);
+    if (layers?.buildings !== undefined) setBuildings(layers.buildings);
+    if (layers?.hillshade !== undefined) setHillshade(layers.hillshade);
+    if (layers?.exaggeration !== undefined) setExaggeration(layers.exaggeration);
+
+    const route: Route = { ...newRoute(share.name), ...share.style, points: share.points };
+    setRoutes((rs) => [...rs, { ...route, name: route.name || `Route ${rs.length + 1}` }]);
+    // while editing, the list is locked: the route just joins it
+    if (!editing) {
+      setSharing(null);
+      setSelectedId(route.id);
+      setProfileOpen(true);
+    }
+    if (share.truncatedFrom) {
+      alert(
+        `This link appears to be cut off: got ${share.points.length} of ` +
+          `${share.truncatedFrom} points. Showing the partial route.`,
+      );
+    }
+  };
+
+  // the link the page was opened with (via ref: StrictMode re-runs effects)
+  const initialShareRef = useRef(initialShare);
+  useEffect(() => {
+    const share = initialShareRef.current;
+    initialShareRef.current = null;
+    if (share) openShare(share);
+  }, []);
+
+  // a link pasted into an open tab changes only the hash, without a reload
+  useEffect(() => {
+    const onHashChange = () => {
+      const share = takeShareFromHash();
+      if (share) openShare(share);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  });
 
   const listDisabled = editing !== null;
 
@@ -409,7 +534,7 @@ export default function App() {
               Right-click to delete the active point.
             </p>
             <p className="distance">
-              {formatDistance(routeLength(editing.draft.points), settings.unitSystem)}
+              {formatDistance(routeLength(editing.draft.points), settings.distanceUnit)}
             </p>
             <label>
               Name
@@ -419,40 +544,7 @@ export default function App() {
                 onChange={(e) => updateDraft({ name: e.target.value })}
               />
             </label>
-            <label>
-              Color
-              <span className="color-row">
-                <input
-                  type="color"
-                  value={editing.draft.color}
-                  onChange={(e) => updateDraft({ color: e.target.value })}
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round(editing.draft.opacity * 100)}
-                  onChange={(e) =>
-                    updateDraft({ opacity: Number(e.target.value) / 100 })
-                  }
-                />
-                <span className="opacity-label">
-                  {Math.round(editing.draft.opacity * 100)}%
-                </span>
-              </span>
-            </label>
-            <label>
-              Width
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={editing.draft.width}
-                onChange={(e) =>
-                  updateDraft({ width: Math.max(1, Number(e.target.value) || 1) })
-                }
-              />
-            </label>
+            <StyleFields value={editing.draft} onChange={updateDraft} />
             <div className="button-row">
               <button onClick={reverse} disabled={editing.draft.points.length < 2}>
                 Reverse
@@ -478,6 +570,65 @@ export default function App() {
                 Save
               </button>
               <button onClick={cancel}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {sharing && sharedRoute && (
+          <div className="details-section">
+            <h2>Share route</h2>
+            <label>
+              Name
+              <input
+                type="text"
+                value={sharing.name}
+                placeholder="Default name"
+                onChange={(e) => updateSharing({ name: e.target.value })}
+              />
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={sharing.includeStyle}
+                onChange={(e) => updateSharing({ includeStyle: e.target.checked })}
+              />
+              Include style
+            </label>
+            <fieldset className="share-style" disabled={!sharing.includeStyle}>
+              <StyleFields
+                value={sharing.style}
+                onChange={(patch) =>
+                  updateSharing({ style: { ...sharing.style, ...patch } })
+                }
+              />
+            </fieldset>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={sharing.includeLayers}
+                onChange={(e) => updateSharing({ includeLayers: e.target.checked })}
+              />
+              Include map layers
+            </label>
+            <p className="hint">
+              Basemap, labels, 3D buildings, hillshade, and terrain, as currently set
+              in the layers control.
+            </p>
+            <label>
+              Link
+              <input
+                type="text"
+                readOnly
+                value={shareUrl}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+            </label>
+            <p className="hint">{shareUrl.length.toLocaleString()} characters</p>
+            <div className="button-row">
+              <button className="primary" onClick={() => void copyShareUrl()}>
+                {copied ? 'Copied' : 'Copy Link'}
+              </button>
+              <button onClick={() => setSharing(null)}>Close</button>
             </div>
           </div>
         )}
@@ -525,7 +676,8 @@ export default function App() {
             route={profileRoute}
             map={map}
             elevationSource={elevationSource}
-            unitSystem={settings.unitSystem}
+            distanceUnit={settings.distanceUnit}
+            elevationUnit={settings.elevationUnit}
             selection={profileSelection}
             onSelectionChange={setProfileSelection}
             onHover={setProfileHover}
@@ -573,7 +725,7 @@ export default function App() {
                 className="context-menu"
                 style={{
                   left: Math.min(contextMenu.x, window.innerWidth - 200),
-                  top: Math.min(contextMenu.y, window.innerHeight - 190),
+                  top: Math.min(contextMenu.y, window.innerHeight - 222),
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
               >
@@ -582,6 +734,7 @@ export default function App() {
                 {item('Show Elevation Profile', () => setProfileOpen(true))}
                 {item('Export KML', () => exportKml(route))}
                 {item('Export GPX', () => exportGpx(route))}
+                {item('Share', () => startShare(route))}
                 {item('Delete', () => deleteRoute(route), 'danger')}
               </div>
             </div>

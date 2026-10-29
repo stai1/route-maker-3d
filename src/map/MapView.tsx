@@ -105,9 +105,9 @@ interface CameraState {
   pitch: number;
 }
 
-/** Restore camera position/orientation from query params (lng, lat, z, b, p). */
+/** Restore camera position/orientation from hash params (lng, lat, z, b, p). */
 function cameraFromUrl(): CameraState | null {
-  const q = new URLSearchParams(location.search);
+  const q = new URLSearchParams(location.hash.slice(1));
   const lng = parseFloat(q.get('lng') ?? '');
   const lat = parseFloat(q.get('lat') ?? '');
   const zoom = parseFloat(q.get('z') ?? '');
@@ -165,16 +165,17 @@ export default function MapView(props: MapViewProps) {
       'top-right',
     );
 
-    // keep camera position/orientation in the query params so refresh restores it
+    // keep camera position/orientation in the hash params so refresh restores it
+    // (the hash never reaches the server)
     const writeCameraToUrl = () => {
       const c = map.getCenter();
-      const q = new URLSearchParams(location.search);
+      const q = new URLSearchParams(location.hash.slice(1));
       q.set('lng', c.lng.toFixed(5));
       q.set('lat', c.lat.toFixed(5));
       q.set('z', map.getZoom().toFixed(2));
       q.set('b', map.getBearing().toFixed(1));
       q.set('p', map.getPitch().toFixed(1));
-      history.replaceState(null, '', `${location.pathname}?${q}${location.hash}`);
+      history.replaceState(null, '', `${location.pathname}${location.search}#${q}`);
     };
     map.on('moveend', writeCameraToUrl);
     map.on('rotateend', writeCameraToUrl);

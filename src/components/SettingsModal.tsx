@@ -1,12 +1,13 @@
-import type { Settings, UnitSystem } from '../units';
+import type { DistanceUnit, ElevationUnit, Settings } from '../units';
 
 interface Props {
   settings: Settings;
-  onChange: (s: Settings) => void;
+  /** Called with only the changed setting. */
+  onChange: (patch: Partial<Settings>) => void;
   onClose: () => void;
 }
 
-/** Settings modal: unit system (matching ../activity-slicer's systems). */
+/** Settings modal: distance and elevation units (defaults follow the locale). */
 export default function SettingsModal({ settings, onChange, onClose }: Props) {
   return (
     <div className="modal-overlay" onMouseDown={onClose}>
@@ -16,16 +17,24 @@ export default function SettingsModal({ settings, onChange, onClose }: Props) {
           <button onClick={onClose}>✕</button>
         </div>
         <label>
-          Units
+          Distance units
           <select
-            value={settings.unitSystem}
-            onChange={(e) =>
-              onChange({ ...settings, unitSystem: e.target.value as UnitSystem })
-            }
+            value={settings.distanceUnit}
+            onChange={(e) => onChange({ distanceUnit: e.target.value as DistanceUnit })}
           >
-            <option value="km/meters">distance: km / elevation: meters</option>
-            <option value="miles/feet">distance: miles / elevation: feet</option>
-            <option value="meters/meters">distance: meters / elevation: meters</option>
+            <option value="km">Kilometers</option>
+            <option value="mi">Miles</option>
+            <option value="m">Meters</option>
+          </select>
+        </label>
+        <label>
+          Elevation units
+          <select
+            value={settings.elevationUnit}
+            onChange={(e) => onChange({ elevationUnit: e.target.value as ElevationUnit })}
+          >
+            <option value="m">Meters</option>
+            <option value="ft">Feet</option>
           </select>
         </label>
         <div className="modal-footer">

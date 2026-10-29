@@ -603,3 +603,32 @@ input[type='number'] {
   justify-content: center;
   color: #77778a;
 }
+
+/* --- share panel --- */
+
+.checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: #e3e3e8;
+  cursor: pointer;
+}
+
+.checkbox-row input {
+  accent-color: #2f5cff;
+  margin: 0;
+}
+
+.share-style {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.share-style:disabled {
+  opacity: 0.45;
+}
